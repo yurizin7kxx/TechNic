@@ -1,17 +1,18 @@
-"use client"; // Necessário para usar hooks como useRouter no App Router
+"use client"; // Necessário para usar o roteador no Next.js (App Router)
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation'; // Importação do roteador
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Função para lidar com o envio do formulário
+  const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Aqui viria sua lógica de autenticação (ex: Firebase, NextAuth, API)
-    // Se o login for bem-sucedido, redirecionamos para a tela do Flux:
-    router.push('/flux'); // Certifique-se que o nome do arquivo da tela Flux seja flux.js ou page.js dentro da pasta /flux
+    // Simulação de login: redireciona para a tela do Flux
+    // Certifique-se de que a pasta 'flux' existe em /app
+    router.push('/flux');
   };
 
   return (
@@ -25,7 +26,7 @@ export default function LoginPage() {
         </div>
 
         <form className="space-y-5" onSubmit={handleSubmit}>
-          {/* Email */}
+          {/* Campo de E-mail */}
           <div>
             <label className="block text-sm text-gray-300 mb-2">Seu e-mail</label>
             <input
@@ -36,7 +37,7 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* Password */}
+          {/* Campo de Senha */}
           <div>
             <label className="block text-sm text-gray-300 mb-2">Senha</label>
             <input
@@ -47,7 +48,7 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* Tipo de Perfil */}
+          {/* Seleção de Perfil */}
           <div>
             <label className="block text-sm text-gray-300 mb-2">
               Tipo de Perfil
