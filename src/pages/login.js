@@ -1,6 +1,57 @@
+"use client";
+
+import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { supabase } from '../../public/lib/supabase'; // Ajuste o caminho conforme seu projeto
 
 export default function LoginPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [perfil, setPerfil] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      // 1. Autenticação básica (E-mail e Senha)
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) throw authError;
+
+      // 2. Verificar se o Tipo de Perfil selecionado condiz com o banco de dados
+      const { data: profileData, error: profileError } = await supabase
+        .from('perfis')
+        .select('tipo_perfil')
+        .eq('id', authData.user.id)
+        .single();
+
+      if (profileError) throw profileError;
+
+      if (profileData.tipo_perfil !== perfil) {
+        // Se o perfil estiver errado, desloga o usuário por segurança
+        await supabase.auth.signOut();
+        alert(`Acesso negado. Esta conta não está registrada como ${perfil}.`);
+        setLoading(false);
+        return;
+      }
+
+      // Se tudo estiver OK, redireciona para a tela do Flux
+      router.push('/telaprincipal');
+      
+    } catch (error) {
+      alert('Erro ao entrar: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
       <div className="w-full max-w-md bg-slate-800 rounded-lg shadow-lg p-8">
@@ -11,12 +62,15 @@ export default function LoginPage() {
           </h1>
         </div>
 
-        <form className="space-y-5">
+        <form className="space-y-5" onSubmit={handleLogin}>
           {/* Email */}
           <div>
             <label className="block text-sm text-gray-300 mb-2">Seu e-mail</label>
             <input
+              required
               type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               placeholder="seu-email@exemplo.com"
               className="w-full px-4 py-2 rounded-md bg-slate-700 border border-slate-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -26,20 +80,25 @@ export default function LoginPage() {
           <div>
             <label className="block text-sm text-gray-300 mb-2">Senha</label>
             <input
+              required
               type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               className="w-full px-4 py-2 rounded-md bg-slate-700 border border-slate-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
-          {/* Tipo de Perfil (Agora abaixo de Senha) */}
+          {/* Tipo de Perfil */}
           <div>
             <label className="block text-sm text-gray-300 mb-2">
               Tipo de Perfil
             </label>
             <select 
+              required
+              value={perfil}
+              onChange={(e) => setPerfil(e.target.value)}
               className="w-full px-4 py-2 rounded-md bg-slate-700 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-              defaultValue=""
             >
               <option value="" disabled>Selecione seu perfil</option>
               <option value="cliente">Cliente</option>
@@ -58,9 +117,10 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 transition py-2 rounded-md text-white font-medium active:scale-[0.98]"
+            disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-700 transition py-2 rounded-md text-white font-medium active:scale-[0.98] disabled:opacity-50"
           >
-            Entrar
+            {loading ? 'Verificando...' : 'Entrar'}
           </button>
         </form>
 
