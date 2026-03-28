@@ -1,9 +1,7 @@
-"use client";
-
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { supabase } from '../../public/lib/supabase'; // Ajuste o caminho conforme seu projeto
+import { useRouter } from 'next/router'; // Ajustado para a pasta pages
+import { supabase } from '../../public/lib/supabase'; // Caminho correto para src/lib/supabase
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,7 +15,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // 1. Autenticação básica (E-mail e Senha)
+      // 1. Autenticação básica
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -25,7 +23,7 @@ export default function LoginPage() {
 
       if (authError) throw authError;
 
-      // 2. Verificar se o Tipo de Perfil selecionado condiz com o banco de dados
+      // 2. Busca o perfil real gravado no banco de dados
       const { data: profileData, error: profileError } = await supabase
         .from('perfis')
         .select('tipo_perfil')
@@ -34,16 +32,22 @@ export default function LoginPage() {
 
       if (profileError) throw profileError;
 
+      // 3. Valida se o que o usuário selecionou no "select" bate com o banco
       if (profileData.tipo_perfil !== perfil) {
-        // Se o perfil estiver errado, desloga o usuário por segurança
         await supabase.auth.signOut();
-        alert(`Acesso negado. Esta conta não está registrada como ${perfil}.`);
+        alert(`Acesso negado. Sua conta é de ${profileData.tipo_perfil}, não de ${perfil}.`);
         setLoading(false);
         return;
       }
 
-      // Se tudo estiver OK, redireciona para a tela do Flux
-      router.push('/telaprincipal');
+      // 4. REDIRECIONAMENTO POR PERMISSÃO
+      if (profileData.tipo_perfil === 'admin' || profileData.tipo_perfil === 'tecnico') {
+        // Se for técnico ou admin, vai para a tela principal de gestão
+        router.push('/telaadm'); 
+      } else {
+        // Se for cliente, vai para a tela de acompanhamento simples
+        router.push('/cliente'); 
+      }
       
     } catch (error) {
       alert('Erro ao entrar: ' + error.message);
@@ -54,16 +58,14 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
-      <div className="w-full max-w-md bg-slate-800 rounded-lg shadow-lg p-8">
+      <div className="w-full max-w-md bg-slate-800 rounded-lg shadow-lg p-8 border border-slate-700">
         
         <div className="text-center mb-6">
-          <h1 className="text-2xl font-semibold text-white">
-            Faça login na sua conta
-          </h1>
+          <h1 className="text-2xl font-semibold text-white">TechNic Login</h1>
+          <p className="text-gray-400 text-sm mt-2">Entre com suas credenciais</p>
         </div>
 
         <form className="space-y-5" onSubmit={handleLogin}>
-          {/* Email */}
           <div>
             <label className="block text-sm text-gray-300 mb-2">Seu e-mail</label>
             <input
@@ -72,11 +74,10 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="seu-email@exemplo.com"
-              className="w-full px-4 py-2 rounded-md bg-slate-700 border border-slate-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 rounded-md bg-slate-700 border border-slate-600 text-white focus:ring-2 focus:ring-blue-500 outline-none"
             />
           </div>
 
-          {/* Password */}
           <div>
             <label className="block text-sm text-gray-300 mb-2">Senha</label>
             <input
@@ -85,20 +86,17 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full px-4 py-2 rounded-md bg-slate-700 border border-slate-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 rounded-md bg-slate-700 border border-slate-600 text-white focus:ring-2 focus:ring-blue-500 outline-none"
             />
           </div>
 
-          {/* Tipo de Perfil */}
           <div>
-            <label className="block text-sm text-gray-300 mb-2">
-              Tipo de Perfil
-            </label>
+            <label className="block text-sm text-gray-300 mb-2">Tipo de Perfil</label>
             <select 
               required
               value={perfil}
               onChange={(e) => setPerfil(e.target.value)}
-              className="w-full px-4 py-2 rounded-md bg-slate-700 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              className="w-full px-4 py-2 rounded-md bg-slate-700 border border-slate-600 text-white cursor-pointer"
             >
               <option value="" disabled>Selecione seu perfil</option>
               <option value="cliente">Cliente</option>
@@ -107,20 +105,12 @@ export default function LoginPage() {
             </select>
           </div>
 
-          <div className="flex items-center justify-between text-sm">
-            <label className="flex items-center gap-2 text-gray-300 cursor-pointer">
-              <input type="checkbox" className="accent-blue-600" />
-              Lembre de mim
-            </label>
-            <a href="#" className="text-blue-500 hover:underline">Esquecer senha?</a>
-          </div>
-
           <button
             type="submit"
             disabled={loading}
             className="w-full bg-blue-600 hover:bg-blue-700 transition py-2 rounded-md text-white font-medium active:scale-[0.98] disabled:opacity-50"
           >
-            {loading ? 'Verificando...' : 'Entrar'}
+            {loading ? 'Validando...' : 'Entrar'}
           </button>
         </form>
 
