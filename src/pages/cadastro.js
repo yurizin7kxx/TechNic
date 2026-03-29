@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/router'; // Ajustado para a pasta pages
-import { supabase } from '../../public/lib/supabase'; // Caminho correto: volta uma pasta e entra em lib
+import { useRouter } from 'next/router'; 
+import { supabase } from '../../public/lib/supabase'; 
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -43,18 +43,20 @@ export default function RegisterPage() {
           .from('perfis')
           .insert([
             {
-              id: authData.user.id, // Vincula o ID da autenticação ao perfil
+              id: authData.user.id,
               nome_completo: formData.nome,
               email: formData.email,
               telefone: formData.telefone,
-              tipo_perfil: formData.perfil, // Salva se é 'cliente', 'tecnico' ou 'admin'
+              tipo_perfil: formData.perfil, 
             },
           ]);
 
         if (dbError) throw dbError;
 
-        alert('Cadastro realizado com sucesso! Agora faça login.');
-        router.push('/login'); // Redireciona para o login para validar o perfil
+        alert('Cadastro realizado com sucesso!');
+        
+        // REDIRECIONAMENTO: Agora vai direto para a home (index)
+        router.push('/'); 
       }
     } catch (error) {
       alert('Erro no cadastro: ' + error.message);
@@ -79,6 +81,7 @@ export default function RegisterPage() {
               required
               name="nome"
               type="text"
+              value={formData.nome}
               onChange={handleChange}
               placeholder="Digite seu nome"
               className="w-full px-4 py-2 rounded-md bg-slate-700 border border-slate-600 text-white focus:ring-2 focus:ring-blue-500 outline-none"
@@ -91,6 +94,7 @@ export default function RegisterPage() {
               required
               name="email"
               type="email"
+              value={formData.email}
               onChange={handleChange}
               placeholder="seu-email@exemplo.com"
               className="w-full px-4 py-2 rounded-md bg-slate-700 border border-slate-600 text-white focus:ring-2 focus:ring-blue-500 outline-none"
@@ -103,6 +107,7 @@ export default function RegisterPage() {
               required
               name="senha"
               type="password"
+              value={formData.senha}
               onChange={handleChange}
               placeholder="••••••••"
               className="w-full px-4 py-2 rounded-md bg-slate-700 border border-slate-600 text-white focus:ring-2 focus:ring-blue-500 outline-none"
@@ -115,6 +120,7 @@ export default function RegisterPage() {
               required
               name="telefone"
               type="tel"
+              value={formData.telefone}
               onChange={handleChange}
               placeholder="(00) 00000-0000"
               className="w-full px-4 py-2 rounded-md bg-slate-700 border border-slate-600 text-white focus:ring-2 focus:ring-blue-500 outline-none"
@@ -127,7 +133,7 @@ export default function RegisterPage() {
               required
               name="perfil"
               onChange={handleChange}
-              defaultValue=""
+              value={formData.perfil}
               className="w-full px-4 py-2 rounded-md bg-slate-700 border border-slate-600 text-white focus:ring-2 focus:ring-blue-500 cursor-pointer"
             >
               <option value="" disabled>Selecione seu perfil</option>
@@ -147,7 +153,7 @@ export default function RegisterPage() {
         </form>
 
         <p className="text-sm text-gray-400 text-center mt-6">
-          Já tem uma conta? <Link href="/login" className="text-blue-500 hover:underline">Faça login</Link>
+          Já tem uma conta? <Link href="/index" className="text-blue-500 hover:underline">Faça login</Link>
         </p>
       </div>
     </div>
