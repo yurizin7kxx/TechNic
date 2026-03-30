@@ -29,7 +29,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      // PASSO A: Criar o usuário no Auth do Supabase
+      // 1. Criar o usuário no Auth do Supabase
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.senha,
@@ -37,7 +37,7 @@ export default function RegisterPage() {
 
       if (authError) throw authError;
 
-      // PASSO B: Salvar os dados complementares na tabela 'perfis'
+      // 2. Salvar os dados na tabela 'perfis'
       if (authData?.user) {
         const { error: dbError } = await supabase
           .from('perfis')
@@ -47,15 +47,15 @@ export default function RegisterPage() {
               nome_completo: formData.nome,
               email: formData.email,
               telefone: formData.telefone,
-              tipo_perfil: formData.perfil, 
+              tipo_perfil: formData.perfil, // Grava exatamente o que foi selecionado no select
             },
           ]);
 
         if (dbError) throw dbError;
 
-        alert('Cadastro realizado com sucesso!');
+        alert('Cadastro realizado com sucesso! Agora você pode fazer login.');
         
-        // REDIRECIONAMENTO: Agora vai direto para a home (index)
+        // Redireciona para a tela de login (index) após cadastrar
         router.push('/'); 
       }
     } catch (error) {
@@ -134,7 +134,7 @@ export default function RegisterPage() {
               name="perfil"
               onChange={handleChange}
               value={formData.perfil}
-              className="w-full px-4 py-2 rounded-md bg-slate-700 border border-slate-600 text-white focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              className="w-full px-4 py-2 rounded-md bg-slate-700 border border-slate-600 text-white focus:ring-2 focus:ring-blue-500 cursor-pointer outline-none"
             >
               <option value="" disabled>Selecione seu perfil</option>
               <option value="cliente">Cliente</option>

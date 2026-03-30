@@ -1,234 +1,243 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../public/lib/supabase';
-import { MessageCircle, CheckCircle2, Clock, Calendar, User, HardDrive, ArrowLeft } from 'lucide-react'; // Sugestão: use lucide-react para ícones
+import { 
+  MessageCircle, 
+  CheckCircle2, 
+  Clock, 
+  ArrowLeft, 
+  Wrench, 
+  ShieldCheck, 
+  Smartphone, 
+  Calendar, 
+  User,
+  Image as ImageIcon
+} from 'lucide-react';
 
 export default function DetalhesOSPage() {
   const [os, setOs] = useState(null);
   const [loading, setLoading] = useState(true);
-  const osId = 'OS1024';
 
   useEffect(() => {
     async function carregarDadosOS() {
       setLoading(true);
       try {
-        const { data } = await supabase.from('servicos').select('*').eq('codigo_os', osId).single();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setLoading(false); return; }
+
+        const nomeUsuario = user.email.split('@')[0];
+        const { data, error } = await supabase
+          .from('servicos_tecnico')
+          .select('*')
+          .eq('cliente', nomeUsuario)
+          .neq('status', 'Finalizado') 
+          .order('id', { ascending: false })
+          .limit(1)
+          .single();
         
         if (data) {
-          setOs(data);
-        } else {
-          // Mock data para preview
           setOs({
-            aparelho: 'Notebook Dell XPS 13',
-            cliente_nome: 'Yuri Silva',
-            status: 'Aguardando_Aprovacao',
-            valor_total: 450.00,
-            problema_identificado: 'Superaquecimento e desligamento repentino.',
-            tecnico: 'Marcos Oliveira',
-            data_entrada: '2024-05-25T14:30:00',
-            pecas_usadas: ['Pasta Térmica Silver', 'Limpeza Interna'],
-            historico_logs: [
-              { data: '25/05/2024 14:30', msg: 'Aparelho recebido na recepção.' },
-              { data: '26/05/2024 09:00', msg: 'Iniciada análise técnica de hardware.' }
-            ],
-            fotos_url: []
+            id: data.id,
+            aparelho: data.equipamento,
+            cliente_nome: data.cliente,
+            status: data.status,
+            valor_total: data.valor || 0,
+            problema_identificado: data.descricao,
+            tecnico: "Equipe TechNic",
+            data_entrada: data.tempo,
+            pecas_usadas: Array.isArray(data.pecas_usadas) ? data.pecas_usadas : [],
+            historico_logs: Array.isArray(data.historico_logs) ? data.historico_logs : [],
+            fotos_url: Array.isArray(data.fotos_url) ? data.fotos_url : []
           });
         }
       } catch (err) {
-        console.error(err);
+        console.error("Erro:", err);
       } finally {
         setLoading(false);
       }
     }
     carregarDadosOS();
-  }, [osId]);
-
-  const aprovarOrcamento = async () => {
-    const { error } = await supabase.from('servicos').update({ status: 'Aprovado_Pelo_Cliente' }).eq('codigo_os', osId);
-    if (!error) {
-      alert("Orçamento aprovado com sucesso!");
-      setOs(prev => ({ ...prev, status: 'Aprovado_Pelo_Cliente' }));
-    }
-  };
+  }, []);
 
   if (loading) return (
-    <div className="min-h-screen bg-[#0b0f1a] flex flex-col items-center justify-center text-white">
-      <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
-      <p className="font-medium tracking-widest text-slate-400">CARREGANDO ORÇAMENTO</p>
+    <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center">
+      <div className="relative">
+        <div className="w-16 h-16 border-4 border-blue-500/20 rounded-full animate-spin" />
+        <div className="absolute top-0 w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+      <p className="mt-6 text-blue-500 font-mono text-[10px] tracking-[0.4em] uppercase animate-pulse">Sincronizando Dados</p>
     </div>
   );
 
-  const isAguardando = os.status === 'Aguardando_Aprovacao';
+  if (!os) return (
+    <div className="min-h-screen bg-[#020617] text-white flex items-center justify-center p-6 text-center">
+      <div className="max-w-md p-12 rounded-[40px] bg-slate-900/50 border border-white/5 backdrop-blur-3xl">
+        <div className="w-20 h-20 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+          <Smartphone className="text-blue-500" size={32} />
+        </div>
+        <h2 className="text-2xl font-bold mb-2">Sem ordens ativas</h2>
+        <p className="text-slate-400 text-sm mb-8">Não encontramos manutenções em andamento para sua conta.</p>
+        <Link href="/" className="inline-block bg-white text-black px-8 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest transition-transform active:scale-95">Voltar</Link>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-[#0b0f1a] text-slate-200 font-sans pb-20">
-      {/* Header Estilizado */}
-      <nav className="bg-[#111827]/80 backdrop-blur-md border-b border-white/5 p-4 sticky top-0 z-50 shadow-2xl">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <Link href="/login" className="group flex items-center gap-2 text-slate-400 hover:text-blue-400 transition-all">
-            <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
-            <span className="text-sm font-semibold">Sair do Portal</span>
+    <div className="min-h-screen bg-[#020617] text-slate-300 font-sans selection:bg-blue-500/30 pb-24">
+      {/* HEADER ULTRA-CLEAN */}
+      <nav className="sticky top-0 z-50 bg-[#020617]/80 backdrop-blur-2xl border-b border-white/5">
+        <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
+          <Link href="/" className="p-2 -ml-2 hover:bg-white/5 rounded-full transition-colors group">
+            <ArrowLeft size={20} className="text-slate-400 group-hover:text-white transition-colors" />
           </Link>
-          <div className="flex flex-col items-end">
-            <span className="text-[10px] text-slate-500 font-bold tracking-[0.2em] uppercase">TechNic ID</span>
-            <span className="text-sm font-mono text-blue-400 font-bold">#{osId}</span>
+          <div className="flex items-center gap-3">
+             <div className="h-8 w-[1px] bg-white/10 mx-2" />
+             <div className="text-right">
+                <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest leading-none mb-1">Status OS</p>
+                <p className="text-xs font-bold text-white uppercase">{os.status?.replace(/_/g, ' ')}</p>
+             </div>
           </div>
         </div>
       </nav>
 
-      <main className="p-4 md:p-8 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
-        {/* Lado Esquerdo - Detalhes (8 colunas) */}
-        <div className="lg:col-span-8 space-y-6">
+      <main className="max-w-6xl mx-auto px-6 mt-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
-          <div className="bg-[#161e2d] rounded-3xl border border-white/5 shadow-2xl overflow-hidden">
-            {/* Top Bar do Card */}
-            <div className="p-6 md:p-10 border-b border-white/5 bg-gradient-to-br from-[#1e293b] to-[#161e2d]">
-              <div className="flex flex-wrap justify-between items-start gap-6">
-                <div className="space-y-2">
-                  <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-wider ${isAguardando ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'}`}>
-                    {isAguardando ? <Clock size={12} /> : <CheckCircle2 size={12} />}
-                    {os.status?.replace(/_/g, ' ')}
-                  </div>
-                  <h1 className="text-4xl font-black text-white tracking-tight leading-none">{os.aparelho}</h1>
-                </div>
-                
-                <div className="bg-black/20 backdrop-blur-sm p-4 rounded-2xl border border-white/5 min-w-[200px]">
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Total do Orçamento</p>
-                  <p className="text-4xl font-black text-emerald-400 font-mono">
-                    <span className="text-lg mr-1 font-normal text-emerald-600">R$</span>
-                    {os.valor_total?.toFixed(2)}
-                  </p>
-                </div>
-              </div>
-
-              {/* Grid de Infos Rápidas */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-6 mt-10">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400"><User size={18} /></div>
-                  <div>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase">Cliente</p>
-                    <p className="text-sm font-semibold">{os.cliente_nome}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-purple-500/10 rounded-lg text-purple-400"><Calendar size={18} /></div>
-                  <div>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase">Entrada</p>
-                    <p className="text-sm font-semibold">{new Date(os.data_entrada).toLocaleDateString('pt-BR')}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-amber-500/10 rounded-lg text-amber-400"><HardDrive size={18} /></div>
-                  <div>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase">Especialista</p>
-                    <p className="text-sm font-semibold">{os.tecnico}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Diagnóstico */}
-            <div className="p-6 md:p-10 space-y-8">
-              <div>
-                <h3 className="text-sm font-bold text-blue-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                  Diagnóstico Técnico
-                </h3>
-                <p className="text-lg text-slate-300 leading-relaxed italic font-serif border-l-4 border-slate-700 pl-6">
-                  "{os.problema_identificado}"
-                </p>
-              </div>
-
-              {os.pecas_usadas?.length > 0 && (
-                <div>
-                  <h3 className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-4">Peças e Insumos</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {os.pecas_usadas.map((peca, i) => (
-                      <div key={i} className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 rounded-xl border border-white/5 text-xs font-medium text-slate-400">
-                        <CheckCircle2 size={14} className="text-emerald-500" />
-                        {peca}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Galeria - Melhorada */}
-          <div className="bg-[#161e2d] p-8 rounded-3xl border border-white/5 shadow-xl">
-            <h3 className="text-white font-bold mb-6 flex items-center gap-2">
-              📸 Evidências do Aparelho
-            </h3>
-            {os.fotos_url?.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {os.fotos_url.map((path, i) => (
-                  <div key={i} className="group relative aspect-square bg-slate-900 rounded-2xl overflow-hidden border border-white/5 cursor-zoom-in">
-                    <img src={path} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="Evidência" />
-                    <div className="absolute inset-0 bg-blue-500/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="h-32 border-2 border-dashed border-white/5 rounded-2xl flex items-center justify-center text-slate-600 italic text-sm font-mono">
-                Nenhuma foto anexada pelo técnico.
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Lado Direito - Sidebar (4 colunas) */}
-        <div className="lg:col-span-4 space-y-6">
-          
-          {/* Card de Aprovação Principal */}
-          <div className="bg-gradient-to-b from-[#1e293b] to-[#161e2d] p-8 rounded-3xl border border-white/10 shadow-2xl sticky top-24">
-            <h3 className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mb-6 text-center">Decisão do Cliente</h3>
+          {/* COLUNA ESQUERDA: INFO PRINCIPAL */}
+          <div className="lg:col-span-8 space-y-8">
             
-            {isAguardando ? (
-              <div className="space-y-4">
-                <button 
-                  onClick={aprovarOrcamento}
-                  className="w-full bg-orange-500 hover:bg-orange-600 text-white py-5 rounded-2xl font-black transition-all shadow-xl shadow-orange-900/20 uppercase text-sm tracking-tighter active:scale-95"
-                >
-                  Autorizar Conserto
-                </button>
-                <p className="text-[10px] text-slate-500 text-center leading-relaxed">
-                  Ao aprovar, você concorda com o valor e as peças listadas acima.
-                </p>
-              </div>
-            ) : (
-              <div className="bg-emerald-500/10 p-6 rounded-2xl border border-emerald-500/20 flex flex-col items-center gap-3">
-                <CheckCircle2 size={32} className="text-emerald-500" />
-                <span className="text-emerald-500 font-black uppercase tracking-widest text-xs">Serviço Aprovado</span>
-                <p className="text-[10px] text-slate-400 text-center">O técnico já foi notificado e está trabalhando no seu aparelho.</p>
-              </div>
-            )}
+            {/* CARD HERO */}
+            <div className="relative overflow-hidden rounded-[48px] bg-slate-900 border border-white/5 shadow-2xl">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 blur-[100px] -mr-32 -mt-32" />
+              
+              <div className="p-8 md:p-12 relative z-10">
+                <div className="flex flex-col md:flex-row justify-between items-start gap-8">
+                  <div className="space-y-6">
+                    <div>
+                      <h2 className="text-blue-500 font-mono text-[11px] font-bold uppercase tracking-[0.5em] mb-4">Relatório Detalhado</h2>
+                      <h1 className="text-5xl md:text-6xl font-black text-white tracking-tighter leading-[0.9]">{os.aparelho}</h1>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-6 text-sm font-medium">
+                      <div className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-2xl border border-white/5">
+                        <User size={16} className="text-blue-400" />
+                        <span className="text-slate-300">{os.cliente_nome}</span>
+                      </div>
+                      <div className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-2xl border border-white/5">
+                        <ShieldCheck size={16} className="text-emerald-400" />
+                        <span className="text-slate-300">Garantia Ativa</span>
+                      </div>
+                    </div>
+                  </div>
 
-            <div className="h-[1px] bg-white/5 my-8" />
-
-            <button className="w-full bg-[#128c7e] hover:bg-[#075e54] text-white py-4 rounded-2xl font-bold transition flex items-center justify-center gap-3 text-sm shadow-lg shadow-emerald-950/20">
-              <MessageCircle size={20} />
-              Falar com Técnico
-            </button>
-          </div>
-
-          {/* Timeline de Evolução */}
-          <div className="bg-[#161e2d] p-8 rounded-3xl border border-white/5 shadow-xl">
-            <h3 className="text-white font-black text-[10px] uppercase tracking-widest mb-8 flex items-center gap-2">
-              <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-              Linha do Tempo
-            </h3>
-            <div className="space-y-8 relative before:absolute before:left-[7px] before:top-2 before:h-[85%] before:w-[2px] before:bg-white/5">
-              {os.historico_logs?.map((log, i) => (
-                <div key={i} className="relative pl-8 group">
-                  <div className="absolute left-0 top-1 w-4 h-4 bg-[#161e2d] border-2 border-blue-500 rounded-full z-10 transition-transform group-hover:scale-125" />
-                  <div>
-                    <p className="text-[10px] text-slate-500 font-bold mb-1">{log.data}</p>
-                    <p className="text-xs text-slate-300 font-medium leading-relaxed">{log.msg}</p>
+                  <div className="w-full md:w-auto p-8 rounded-[32px] bg-blue-600 shadow-xl shadow-blue-600/20 flex flex-col items-center justify-center min-w-[220px]">
+                    <span className="text-[10px] font-black text-blue-100 uppercase tracking-widest mb-2 opacity-80">Investimento Total</span>
+                    <div className="flex items-baseline gap-1 text-white">
+                      <span className="text-lg font-medium opacity-70">R$</span>
+                      <span className="text-5xl font-black tracking-tighter">{Number(os.valor_total).toFixed(2)}</span>
+                    </div>
                   </div>
                 </div>
-              ))}
+              </div>
+
+              {/* BARRA DE PROGRESSO VISUAL */}
+              <div className="h-2 w-full bg-white/5 relative">
+                <div 
+                  className="h-full bg-gradient-to-r from-blue-600 to-blue-400 shadow-[0_0_20px_#3b82f6]" 
+                  style={{ width: os.status === 'Pronto' ? '100%' : '65%' }}
+                />
+              </div>
+            </div>
+
+            {/* DIAGNÓSTICO TÉCNICO */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="bg-slate-900/50 p-10 rounded-[40px] border border-white/5">
+                <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center mb-6 text-blue-500">
+                  <Wrench size={24} />
+                </div>
+                <h3 className="text-white font-bold text-lg mb-4">Parecer do Especialista</h3>
+                <p className="text-slate-400 leading-relaxed italic text-base">
+                  "{os.problema_identificado || "Nossa equipe está finalizando os testes laboratoriais em seu dispositivo."}"
+                </p>
+              </div>
+
+              <div className="bg-slate-900/50 p-10 rounded-[40px] border border-white/5">
+                <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center mb-6 text-emerald-500">
+                  <CheckCircle2 size={24} />
+                </div>
+                <h3 className="text-white font-bold text-lg mb-4">Peças & Serviços</h3>
+                <div className="space-y-3">
+                  {os.pecas_usadas.length > 0 ? os.pecas_usadas.map((peca, i) => (
+                    <div key={i} className="flex items-center gap-3 text-sm text-slate-400">
+                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                      {peca}
+                    </div>
+                  )) : (
+                    <p className="text-sm text-slate-500">Incluído no pacote de reparo padrão.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* GALERIA DE FOTOS (CASO EXISTA) */}
+            {os.fotos_url.length > 0 && (
+              <div className="bg-slate-900/50 p-10 rounded-[40px] border border-white/5">
+                <h3 className="text-white font-bold text-lg mb-8 flex items-center gap-3">
+                  <ImageIcon size={20} className="text-blue-500" /> Registro Fotográfico
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {os.fotos_url.map((path, i) => (
+                    <div key={i} className="aspect-square rounded-3xl bg-black overflow-hidden border border-white/5 group cursor-pointer">
+                      <img 
+                        src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/os-fotos/${path}`} 
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                        alt="Processo de Reparo" 
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* COLUNA DIREITA: TIMELINE E SUPORTE */}
+          <div className="lg:col-span-4 space-y-8">
+            {/* CARD SUPORTE */}
+            <div className="bg-blue-600 p-10 rounded-[48px] shadow-2xl shadow-blue-600/20 text-white group">
+              <h3 className="text-xl font-bold mb-2">Precisa de ajuda?</h3>
+              <p className="text-blue-100 text-sm mb-8 leading-relaxed opacity-80">Fale diretamente com o técnico responsável pelo seu {os.aparelho}.</p>
+              <button className="w-full bg-white text-blue-600 py-5 rounded-3xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 transition-transform active:scale-95">
+                <MessageCircle size={20} /> WhatsApp Direto
+              </button>
+            </div>
+
+            {/* TIMELINE */}
+            <div className="bg-slate-900/50 p-10 rounded-[48px] border border-white/5">
+              <h3 className="text-white font-bold text-sm uppercase tracking-widest mb-10 flex items-center justify-between">
+                Linha do Tempo
+                <Clock size={16} className="text-slate-500" />
+              </h3>
+              <div className="space-y-10">
+                {os.historico_logs.length > 0 ? os.historico_logs.map((log, i) => (
+                  <div key={i} className="flex gap-6 group relative">
+                    {i !== os.historico_logs.length - 1 && (
+                      <div className="absolute left-[11px] top-8 w-[2px] h-full bg-white/5" />
+                    )}
+                    <div className="w-6 h-6 rounded-full border-2 border-blue-500 bg-[#020617] flex items-center justify-center shrink-0 z-10">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-slate-200">{log}</p>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Status Atualizado</p>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="text-center py-8">
+                    <Calendar className="mx-auto text-slate-700 mb-4" size={24} />
+                    <p className="text-xs text-slate-600 font-bold uppercase">Aguardando logs</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

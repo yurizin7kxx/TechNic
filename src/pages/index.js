@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/router'; // Ajustado para a pasta pages
-import { supabase } from '../../public/lib/supabase'; // Caminho correto para src/lib/supabase
+import { useRouter } from 'next/router';
+import { supabase } from '../../public/lib/supabase';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -40,12 +40,17 @@ export default function LoginPage() {
         return;
       }
 
-      // 4. REDIRECIONAMENTO POR PERMISSÃO
-      if (profileData.tipo_perfil === 'admin' || profileData.tipo_perfil === 'tecnico') {
-        // Se for técnico ou admin, vai para a tela principal de gestão
+      // 4. REDIRECIONAMENTO POR PERMISSÃO (ATUALIZADO)
+      if (profileData.tipo_perfil === 'admin') {
+        // Manda o dono para a tela de administração (telaadm)
         router.push('/telaadm'); 
-      } else {
-        // Se for cliente, vai para a tela de acompanhamento simples
+      } 
+      else if (profileData.tipo_perfil === 'tecnico') {
+        // Manda o técnico para a tela específica dele (tecnico)
+        router.push('/tecnico'); 
+      } 
+      else {
+        // Se for cliente, vai para a tela de consulta
         router.push('/cliente'); 
       }
       

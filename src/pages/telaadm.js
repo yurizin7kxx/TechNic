@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../../public/lib/supabase'; // Certifique-se que este caminho está correto
+import { supabase } from '../../public/lib/supabase';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -34,14 +34,13 @@ export default function AdminDashboard() {
     setLoading(false);
   }
 
-  // BUSCA DADOS REAIS - Versão otimizada
   async function fetchDadosReais() {
     try {
-      // Usando select('*') simples primeiro para garantir que os dados apareçam
-      // Se você configurar Foreign Keys depois, pode voltar para o formato anterior
+      // CORREÇÃO 1: Nome da tabela para 'servicos_tecnico'
       const { data, error } = await supabase
-        .from('servicos')
-        .select('*'); 
+        .from('servicos_tecnico') 
+        .select('*')
+        .order('tempo', { ascending: false });
 
       if (error) throw error;
       setServicos(data || []);
@@ -50,10 +49,17 @@ export default function AdminDashboard() {
     }
   }
 
+  // Função auxiliar para padronizar a checagem de status
+  // CORREÇÃO 2: Agora aceita "Finalizado" ou "resolvido"
+  const isFinalizado = (status) => {
+    const s = status?.toLowerCase() || '';
+    return s.includes('finalizado') || s.includes('resolvido');
+  };
+
   if (loading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">Carregando Master Panel...</div>;
 
   return (
-    <div className="flex min-h-screen bg-slate-900 text-slate-100">
+    <div className="flex min-h-screen bg-slate-900 text-slate-100 font-sans">
       
       {/* --- SIDEBAR ESQUERDA --- */}
       <aside className="w-64 bg-slate-800 border-r border-slate-700 flex flex-col">
@@ -68,17 +74,26 @@ export default function AdminDashboard() {
           >
             📊 Visão Geral
           </button>
+          
           <button 
             onClick={() => setAbaAtiva('servicos')}
             className={`w-full text-left px-4 py-3 rounded-lg transition ${abaAtiva === 'servicos' ? 'bg-blue-600 text-white' : 'hover:bg-slate-700'}`}
           >
             🛠️ Todos os Serviços
           </button>
+
           <button 
             onClick={() => setAbaAtiva('relatorios')}
             className={`w-full text-left px-4 py-3 rounded-lg transition ${abaAtiva === 'relatorios' ? 'bg-blue-600 text-white' : 'hover:bg-slate-700'}`}
           >
             📋 Relatórios Técnicos
+          </button>
+
+          <button 
+            onClick={() => setAbaAtiva('finalizados')}
+            className={`w-full text-left px-4 py-3 rounded-lg transition ${abaAtiva === 'finalizados' ? 'bg-green-600 text-white' : 'hover:bg-slate-700'}`}
+          >
+            ✅ Finalizados
           </button>
         </nav>
 
@@ -100,31 +115,37 @@ export default function AdminDashboard() {
         </header>
 
         <div className="p-8">
-          {/* VISÃO GERAL DINÂMICA */}
+          {/* VISÃO GERAL */}
           {abaAtiva === 'geral' && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-                <p className="text-slate-400 text-sm">Total de Serviços</p>
+                <p className="text-slate-400 text-sm">Total Geral</p>
                 <p className="text-3xl font-bold text-blue-400">{servicos.length}</p>
-              </div>
-              <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-                <p className="text-slate-400 text-sm">Concluídos</p>
-                <p className="text-3xl font-bold text-green-400">
-                  {/* Filtro insensível a maiúsculas para "resolvido" */}
-                  {servicos.filter(s => s.status?.toLowerCase().includes('resolvido')).length}
-                </p>
               </div>
               <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
                 <p className="text-slate-400 text-sm">Em Aberto</p>
                 <p className="text-3xl font-bold text-yellow-400">
-                  {/* Filtra tudo que NÃO estiver resolvido */}
-                  {servicos.filter(s => !s.status?.toLowerCase().includes('resolvido')).length}
+                  {servicos.filter(s => !isFinalizado(s.status)).length}
+                </p>
+              </div>
+              <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+                <p className="text-slate-400 text-sm">Finalizados</p>
+                <p className="text-3xl font-bold text-green-400">
+                  {servicos.filter(s => isFinalizado(s.status)).length}
+                </p>
+              </div>
+              <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+                <p className="text-slate-400 text-sm">Faturamento</p>
+                <p className="text-3xl font-bold text-emerald-400">
+                  R$ {servicos
+                    .filter(s => isFinalizado(s.status))
+                    .reduce((acc, s) => acc + (Number(s.valor) || 0), 0)}
                 </p>
               </div>
             </div>
           )}
 
-          {/* TABELA DE SERVIÇOS */}
+          {/* TABELA DE TODOS OS SERVIÇOS */}
           {abaAtiva === 'servicos' && (
             <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
               <table className="w-full text-left">
@@ -142,7 +163,7 @@ export default function AdminDashboard() {
                       <td className="p-4">{s.cliente || 'Sem nome'}</td>
                       <td className="p-4">
                         <span className={`px-2 py-1 rounded-full text-xs 
-                          ${s.status?.toLowerCase().includes('resolvido') ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                          ${isFinalizado(s.status) ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
                           {s.status}
                         </span>
                       </td>
@@ -153,19 +174,44 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* RELATÓRIOS */}
-          {abaAtiva === 'relatorios' && (
-            <div className="space-y-4">
-              <h3 className="text-xl font-bold mb-4">Relatórios Técnicos</h3>
-              {servicos.filter(s => s.descricao).map(s => (
-                <div key={s.id} className="bg-slate-800 p-6 rounded-xl border-l-4 border-blue-500">
-                  <h4 className="font-bold text-lg">{s.equipamento}</h4>
-                  <p className="text-sm text-slate-400 mt-2">
-                    <span className="text-blue-400 font-semibold">Descrição/Relatório:</span> {s.descricao}
-                  </p>
-                </div>
-              ))}
+          {/* TABELA DE FINALIZADOS */}
+          {abaAtiva === 'finalizados' && (
+            <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+              <table className="w-full text-left">
+                <thead className="bg-slate-700/50 text-slate-400 text-xs uppercase">
+                  <tr>
+                    <th className="p-4">Equipamento</th>
+                    <th className="p-4">Valor</th>
+                    <th className="p-4">Garantia</th>
+                    <th className="p-4">Data</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-700">
+                  {servicos.filter(s => isFinalizado(s.status)).map(s => (
+                    <tr key={s.id} className="hover:bg-green-500/5 transition">
+                      <td className="p-4 font-medium text-green-400">{s.equipamento}</td>
+                      <td className="p-4 font-bold text-emerald-400">R$ {s.valor || '0'}</td>
+                      <td className="p-4 text-slate-300">{s.garantia || 'N/A'}</td>
+                      <td className="p-4 text-slate-500 text-sm">
+                        {s.tempo ? new Date(s.tempo).toLocaleDateString('pt-BR') : 'Recente'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
+          )}
+          
+          {/* Aba Relatórios continua a mesma, mas agora lendo de servicos_tecnico */}
+          {abaAtiva === 'relatorios' && (
+             <div className="space-y-4">
+               {servicos.filter(s => s.descricao).map(s => (
+                 <div key={s.id} className="bg-slate-800 p-6 rounded-xl border-l-4 border-blue-500">
+                    <h4 className="font-bold text-lg">{s.equipamento} - {s.cliente}</h4>
+                    <p className="text-sm text-slate-400 mt-2">{s.descricao}</p>
+                 </div>
+               ))}
+             </div>
           )}
         </div>
       </main>
