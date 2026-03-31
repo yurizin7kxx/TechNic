@@ -36,7 +36,6 @@ export default function AdminDashboard() {
 
   async function fetchDadosReais() {
     try {
-      // CORREÇÃO 1: Nome da tabela para 'servicos_tecnico'
       const { data, error } = await supabase
         .from('servicos_tecnico') 
         .select('*')
@@ -49,8 +48,6 @@ export default function AdminDashboard() {
     }
   }
 
-  // Função auxiliar para padronizar a checagem de status
-  // CORREÇÃO 2: Agora aceita "Finalizado" ou "resolvido"
   const isFinalizado = (status) => {
     const s = status?.toLowerCase() || '';
     return s.includes('finalizado') || s.includes('resolvido');
@@ -137,9 +134,10 @@ export default function AdminDashboard() {
               <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
                 <p className="text-slate-400 text-sm">Faturamento</p>
                 <p className="text-3xl font-bold text-emerald-400">
+                  {/* ALTERAÇÃO: Faturamento agora soma a coluna 'preço' */}
                   R$ {servicos
                     .filter(s => isFinalizado(s.status))
-                    .reduce((acc, s) => acc + (Number(s.valor) || 0), 0)}
+                    .reduce((acc, s) => acc + (Number(s.preço) || 0), 0).toFixed(2)}
                 </p>
               </div>
             </div>
@@ -181,7 +179,7 @@ export default function AdminDashboard() {
                 <thead className="bg-slate-700/50 text-slate-400 text-xs uppercase">
                   <tr>
                     <th className="p-4">Equipamento</th>
-                    <th className="p-4">Valor</th>
+                    <th className="p-4">Preço</th>
                     <th className="p-4">Garantia</th>
                     <th className="p-4">Data</th>
                   </tr>
@@ -190,7 +188,8 @@ export default function AdminDashboard() {
                   {servicos.filter(s => isFinalizado(s.status)).map(s => (
                     <tr key={s.id} className="hover:bg-green-500/5 transition">
                       <td className="p-4 font-medium text-green-400">{s.equipamento}</td>
-                      <td className="p-4 font-bold text-emerald-400">R$ {s.valor || '0'}</td>
+                      {/* ALTERAÇÃO: Exibindo o valor da coluna 'preço' */}
+                      <td className="p-4 font-bold text-emerald-400">R$ {Number(s.preço || 0).toFixed(2)}</td>
                       <td className="p-4 text-slate-300">{s.garantia || 'N/A'}</td>
                       <td className="p-4 text-slate-500 text-sm">
                         {s.tempo ? new Date(s.tempo).toLocaleDateString('pt-BR') : 'Recente'}
@@ -202,7 +201,7 @@ export default function AdminDashboard() {
             </div>
           )}
           
-          {/* Aba Relatórios continua a mesma, mas agora lendo de servicos_tecnico */}
+          {/* Aba Relatórios */}
           {abaAtiva === 'relatorios' && (
              <div className="space-y-4">
                {servicos.filter(s => s.descricao).map(s => (

@@ -19,11 +19,10 @@ export default function PainelTecnicoEntrada() {
 
   useEffect(() => {
     async function carregarClientes() {
-      // BUSCA: Trazemos ID, Nome e Email para garantir que todos apareçam
       const { data, error } = await supabase
         .from('perfis')
-        .select('id, nome_completo, email') 
-        .neq('nome_completo', 'yuri') 
+        .select('id, nome_completo, email, tipo_perfil') 
+        .eq('tipo_perfil', 'cliente') 
         .order('nome_completo', { ascending: true }); 
       
       if (error) {
@@ -35,9 +34,9 @@ export default function PainelTecnicoEntrada() {
     carregarClientes();
   }, []);
 
-  const handleSelecionarCliente = async (nomeCliente) => {
-    setClienteSelecionado(nomeCliente);
-    if (!nomeCliente) {
+  const handleSelecionarCliente = async (valorCliente) => {
+    setClienteSelecionado(valorCliente);
+    if (!valorCliente) {
       limparCampos(true);
       return;
     }
@@ -46,7 +45,7 @@ export default function PainelTecnicoEntrada() {
       const { data, error } = await supabase
         .from('servicos_tecnico')
         .select('*')
-        .eq('cliente', nomeCliente)
+        .eq('cliente', valorCliente)
         .neq('status', 'Finalizado') 
         .order('tempo', { ascending: false })
         .limit(1)
@@ -55,10 +54,11 @@ export default function PainelTecnicoEntrada() {
       if (data) {
         setAparelho(data.equipamento || '');
         setProblema(data.descricao || '');
-        setValor(data.valor?.toString() || '');
+        // Ajustado para ler da coluna 'preço' do seu banco
+        setValor(data.preço?.toString() || '');
         setGarantia(data.garantia || '90 dias');
-        setPecas(data.pecas_usadas || []);
-        setHistorico(data.historico_logs || []);
+        setPecas(Array.isArray(data.pecas_usadas) ? data.pecas_usadas : []);
+        setHistorico(Array.isArray(data.historico_logs) ? data.historico_logs : []);
       } else {
         limparCampos(false); 
       }
@@ -80,18 +80,36 @@ export default function PainelTecnicoEntrada() {
   };
 
   const adicionarPeca = () => {
-    if (novaPeca) {
+    if (novaPeca.trim()) {
       setPecas([...pecas, novaPeca]);
       setNovaPeca('');
     }
   };
 
-  const adicionarObs = () => {
-    if (novaObs) {
-      const dataHora = new Date().toLocaleString('pt-BR');
-      const log = `${dataHora} - ${novaObs}`;
-      setHistorico([log, ...historico]);
-      setNovaObs('');
+  const adicionarObs = async () => {
+    if (!novaObs.trim()) return;
+    if (!clienteSelecionado || !aparelho) return alert("Selecione um cliente e aparelho primeiro!");
+
+    const dataHora = new Date().toLocaleString('pt-BR');
+    const novoLog = `${dataHora} - ${novaObs}`;
+    const novoHistorico = [...historico, novoLog];
+
+    setHistorico(novoHistorico);
+    setNovaObs('');
+
+    try {
+      // Sincroniza imediatamente com o banco
+      const { error } = await supabase
+        .from('servicos_tecnico')
+        .update({ historico_logs: novoHistorico })
+        .eq('cliente', clienteSelecionado)
+        .eq('equipamento', aparelho)
+        .neq('status', 'Finalizado');
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Erro ao salvar log:", error.message);
+      alert("Erro ao sincronizar log com o banco de dados.");
     }
   };
 
@@ -122,6 +140,10 @@ export default function PainelTecnicoEntrada() {
         }
       }
 
+      // Limpeza de dados para evitar strings vazias ou nulas
+      const historicoLimpo = historico.filter(h => h && h.trim() !== "");
+      const pecasLimpas = pecas.filter(p => p && p.trim() !== "");
+
       const { error } = await supabase
         .from('servicos_tecnico')
         .upsert([{ 
@@ -130,17 +152,18 @@ export default function PainelTecnicoEntrada() {
           equipamento: aparelho,
           status: statusFinal,
           descricao: problema,
-          valor: parseFloat(valor) || 0,
+          // CORREÇÃO: Usando o nome exato da coluna no seu banco ('preço')
+          preço: parseFloat(valor) || 0, 
           garantia: garantia,
           tempo: new Date(),
-          pecas_usadas: pecas,
-          historico_logs: historico,
+          pecas_usadas: pecasLimpas.length > 0 ? pecasLimpas : null,
+          historico_logs: historicoLimpo.length > 0 ? historicoLimpo : null,
           fotos_url: linksFotos 
         }], { onConflict: 'cliente, equipamento' });
 
       if (error) throw error;
       
-      alert(`✅ OS atualizada/salva com sucesso!`);
+      alert(`✅ OS salva com sucesso!`);
       limparCampos();
 
     } catch (error) {
@@ -169,13 +192,10 @@ export default function PainelTecnicoEntrada() {
                 >
                   <option value="">Selecione o cliente...</option>
                   {clientes.map(c => {
-                    // Define o nome que será salvo e exibido
-                    const valorSelecao = c.nome_completo || c.email;
-                    const labelExibicao = c.nome_completo ? c.nome_completo : `(S/ Nome) ${c.email}`;
-                    
+                    const nomeParaExibir = c.nome_completo || c.email;
                     return (
-                      <option key={c.id} value={valorSelecao}>
-                        {labelExibicao}
+                      <option key={c.id} value={nomeParaExibir}>
+                        {nomeParaExibir}
                       </option>
                     );
                   })}
@@ -198,7 +218,6 @@ export default function PainelTecnicoEntrada() {
             />
           </div>
 
-          {/* ... Restante do código permanece igual (Peças, Fotos, Logs, Valor) ... */}
           <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-800">
             <h3 className="text-white font-bold mb-4">🛠 Peças Substituídas</h3>
             <div className="flex gap-2 mb-4">
@@ -207,12 +226,12 @@ export default function PainelTecnicoEntrada() {
                 placeholder="Nova peça..."
                 value={novaPeca} onChange={(e) => setNovaPeca(e.target.value)}
               />
-              <button onClick={adicionarPeca} className="bg-blue-600 hover:bg-blue-700 px-6 rounded-lg font-bold">+</button>
+              <button type="button" onClick={adicionarPeca} className="bg-blue-600 hover:bg-blue-700 px-6 rounded-lg font-bold">+</button>
             </div>
             <div className="flex flex-wrap gap-2">
               {pecas.map((p, i) => (
                 <span key={i} className="bg-blue-900/30 px-3 py-1 rounded-full text-xs border border-blue-500/50 text-blue-200">
-                  {p} <button onClick={() => setPecas(pecas.filter((_, idx) => idx !== i))} className="text-red-400">×</button>
+                  {p} <button type="button" onClick={() => setPecas(pecas.filter((_, idx) => idx !== i))} className="text-red-400 ml-1">×</button>
                 </span>
               ))}
             </div>
@@ -231,8 +250,19 @@ export default function PainelTecnicoEntrada() {
           <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-800 shadow-xl">
             <h3 className="text-white font-bold mb-4">📜 Logs Internos</h3>
             <div className="flex gap-2 mb-4">
-              <input className="flex-1 bg-[#0f172a] border border-slate-700 rounded-lg p-2 text-sm text-white" placeholder="Nota técnica..." value={novaObs} onChange={(e) => setNovaObs(e.target.value)} />
-              <button onClick={adicionarObs} className="bg-slate-700 px-3 rounded-lg text-xs font-bold transition-colors">ADD</button>
+              <input 
+                className="flex-1 bg-[#0f172a] border border-slate-700 rounded-lg p-2 text-sm text-white" 
+                placeholder="Nota técnica..." 
+                value={novaObs} 
+                onChange={(e) => setNovaObs(e.target.value)} 
+              />
+              <button 
+                type="button" 
+                onClick={adicionarObs} 
+                className="bg-slate-700 px-3 rounded-lg text-xs font-bold transition-colors hover:bg-slate-600"
+              >
+                ADD
+              </button>
             </div>
             <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
               {historico.map((h, i) => (
@@ -266,27 +296,15 @@ export default function PainelTecnicoEntrada() {
             </div>
             
             <div className="space-y-3">
-              <button 
-                onClick={() => salvarNovaOS('Fila_de_Espera')} 
-                disabled={loading} 
-                className="w-full bg-slate-600 hover:bg-slate-700 py-3 rounded-lg font-bold text-white transition-all active:scale-95 disabled:opacity-50"
-              >
+              <button type="button" onClick={() => salvarNovaOS('Fila_de_Espera')} disabled={loading} className="w-full bg-slate-600 hover:bg-slate-700 py-3 rounded-lg font-bold text-white transition-transform active:scale-95">
                 {loading ? '...' : 'COLOCAR NA FILA'}
               </button>
 
-              <button 
-                onClick={() => salvarNovaOS('Em_Manutencao')} 
-                disabled={loading} 
-                className="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg font-bold text-white transition-all active:scale-95 disabled:opacity-50"
-              >
+              <button type="button" onClick={() => salvarNovaOS('Em_Manutencao')} disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg font-bold text-white transition-transform active:scale-95">
                 {loading ? '...' : 'INICIAR REPARO'}
               </button>
 
-              <button 
-                onClick={() => salvarNovaOS('Finalizado')} 
-                disabled={loading} 
-                className="w-full bg-emerald-600 hover:bg-emerald-700 py-4 rounded-lg font-bold text-white shadow-lg shadow-emerald-900/20 transition-all active:scale-95 disabled:opacity-50"
-              >
+              <button type="button" onClick={() => salvarNovaOS('Finalizado')} disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-700 py-4 rounded-lg font-bold text-white shadow-lg shadow-emerald-900/20 transition-transform active:scale-95">
                 {loading ? 'Salvando...' : 'FINALIZAR SERVIÇO'}
               </button>
             </div>
