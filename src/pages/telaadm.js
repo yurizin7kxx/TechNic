@@ -97,12 +97,22 @@ export default function AdminDashboard() {
   const hoje = new Date();
   const conv = (v) => Number(v) || 0;
 
-  const faturamentoTotal = servicos.filter(s => isFinalizado(s.status)).reduce((acc, s) => acc + conv(s.preço), 0);
-  const gastosPecas = servicos.filter(s => isFinalizado(s.status)).reduce((acc, s) => acc + conv(s.pecas_usadas), 0);
+  // --- CÁLCULOS CORRIGIDOS ---
+  
+  const faturamentoTotal = servicos
+    .filter(s => isFinalizado(s.status))
+    .reduce((acc, s) => acc + conv(s.preço), 0);
+  
+  // Alterado para ler 'custo_pecas', que é onde os dados estão no seu banco
+  const gastosPecas = servicos
+    .filter(s => isFinalizado(s.status))
+    .reduce((acc, s) => acc + conv(s.custo_pecas), 0);
+  
   const lucroLiquido = faturamentoTotal - gastosPecas;
 
-  const faturamentoMensal = servicos.filter(s => isFinalizado(s.status) && s.tempo && new Date(s.tempo).getMonth() === hoje.getMonth()).reduce((acc, s) => acc + conv(s.preço), 0);
-  const faturamentoSemanal = servicos.filter(s => isFinalizado(s.status) && s.tempo && (new Date() - new Date(s.tempo)) / (1000 * 60 * 60 * 24) <= 7).reduce((acc, s) => acc + conv(s.preço), 0);
+  const faturamentoSemanal = servicos
+    .filter(s => isFinalizado(s.status) && s.tempo && (new Date() - new Date(s.tempo)) / (1000 * 60 * 60 * 24) <= 7)
+    .reduce((acc, s) => acc + conv(s.preço), 0);
 
   if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white font-mono tracking-tighter">CARREGANDO MASTER PANEL...</div>;
 
@@ -142,7 +152,6 @@ export default function AdminDashboard() {
         <div className="p-10">
           {abaAtiva === 'geral' && (
             <div className="space-y-8">
-              {/* CARDS SUPERIORES: Menores (h-32) */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {[{ label: 'Total Geral', val: servicos.length, color: 'text-blue-500' }, { label: 'Em Aberto', val: servicos.filter(s => !isFinalizado(s.status)).length, color: 'text-yellow-500' }, { label: 'Finalizados', val: servicos.filter(s => isFinalizado(s.status)).length, color: 'text-green-500' }].map((card, i) => (
                   <div key={i} className="bg-slate-900 h-30 rounded-3xl border border-slate-800 flex flex-col items-center justify-center shadow-xl">
@@ -152,7 +161,6 @@ export default function AdminDashboard() {
                 ))}
               </div>
 
-              {/* CARDS INFERIORES: Maiores (h-56) */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="bg-slate-900 h-65 p-8 rounded-3xl border border-slate-800 shadow-2xl flex flex-col justify-between">
                   <div>
@@ -170,7 +178,7 @@ export default function AdminDashboard() {
                     <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-2">Custo com Peças</p>
                     <p className="text-5xl font-black text-red-500 tracking-tighter">R$ {gastosPecas.toFixed(2)}</p>
                   </div>
-                  <p className="text-[9px] text-slate-600 font-bold italic uppercase tracking-widest underline decoration-red-500/30">Coluna: pecas_usadas</p>
+                  <p className="text-[9px] text-slate-600 font-bold italic uppercase tracking-widest underline decoration-red-500/30">Lendo coluna: custo_pecas</p>
                 </div>
 
                 <div className="bg-gradient-to-br from-emerald-600 to-green-800 h-65 p-8 rounded-3xl shadow-2xl flex flex-col justify-center relative overflow-hidden group">
@@ -183,7 +191,6 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* ... Restante das abas (técnicos, serviços, etc) permanecem iguais ... */}
           {abaAtiva === 'tecnicos' && (
             <div className="space-y-10">
               <div className="max-w-xl mx-auto bg-slate-900 p-10 rounded-3xl border border-slate-800 shadow-2xl">
@@ -229,6 +236,39 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {/* NOVA SEÇÃO: RELATÓRIOS TÉCNICOS */}
+          {abaAtiva === 'relatorios' && (
+            <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl">
+              <div className="p-6 border-b border-slate-800">
+                <h3 className="font-black text-xl italic text-slate-200 uppercase">Detalhamento Financeiro por Serviço</h3>
+              </div>
+              <table className="w-full text-left">
+                <thead className="bg-slate-800/50 text-slate-500 text-[10px] font-black uppercase">
+                  <tr>
+                    <th className="p-6">Equipamento</th>
+                    <th className="p-6">Mão de Obra (Preço)</th>
+                    <th className="p-6">Custo Peças</th>
+                    <th className="p-6 text-right">Lucro Líquido</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800">
+                  {servicos.filter(s => isFinalizado(s.status)).map(s => {
+                    const preco = conv(s.preço);
+                    const custo = conv(s.custo_pecas);
+                    return (
+                      <tr key={s.id} className="hover:bg-slate-800/30 font-bold">
+                        <td className="p-6 text-slate-200">{s.equipamento}</td>
+                        <td className="p-6 text-emerald-400">R$ {preco.toFixed(2)}</td>
+                        <td className="p-6 text-red-400">R$ {custo.toFixed(2)}</td>
+                        <td className="p-6 text-right text-blue-400">R$ {(preco - custo).toFixed(2)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
           {(abaAtiva === 'servicos' || abaAtiva === 'finalizados') && (
             <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl">
               <table className="w-full text-left">
@@ -247,17 +287,6 @@ export default function AdminDashboard() {
                 </tbody>
               </table>
             </div>
-          )}
-
-          {abaAtiva === 'relatorios' && (
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-               {servicos.filter(s => s.descricao).map(s => (
-                 <div key={s.id} className="bg-slate-900 p-8 rounded-3xl border-l-8 border-blue-600 shadow-xl">
-                    <div className="flex justify-between items-start mb-4"> <h4 className="font-black text-xl text-slate-200">{s.equipamento}</h4> <span className="text-[10px] font-black bg-slate-800 px-3 py-1 rounded-full text-slate-500 uppercase">{s.cliente}</span> </div>
-                    <p className="text-sm font-medium text-slate-500 leading-relaxed italic">"{s.descricao}"</p>
-                 </div>
-               ))}
-             </div>
           )}
         </div>
       </main>
