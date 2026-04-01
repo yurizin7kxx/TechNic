@@ -7,9 +7,9 @@ export default function PainelTecnicoEntrada() {
   const [aparelho, setAparelho] = useState('');
   const [problema, setProblema] = useState('');
   const [valor, setValor] = useState('');
+  const [custoPecas, setCustoPecas] = useState(''); 
   const [garantia, setGarantia] = useState('90 dias'); 
   const [loading, setLoading] = useState(false);
-
   const [pecas, setPecas] = useState([]); 
   const [novaPeca, setNovaPeca] = useState('');
   const [historico, setHistorico] = useState([]); 
@@ -54,10 +54,10 @@ export default function PainelTecnicoEntrada() {
       if (data) {
         setAparelho(data.equipamento || '');
         setProblema(data.descricao || '');
-        // Ajustado para ler da coluna 'preço' do seu banco
         setValor(data.preço?.toString() || '');
+        setCustoPecas(data.pecas_usadas?.toString() || '');
         setGarantia(data.garantia || '90 dias');
-        setPecas(Array.isArray(data.pecas_usadas) ? data.pecas_usadas : []);
+        setPecas(Array.isArray(data.lista_pecas) ? data.lista_pecas : []);
         setHistorico(Array.isArray(data.historico_logs) ? data.historico_logs : []);
       } else {
         limparCampos(false); 
@@ -72,6 +72,7 @@ export default function PainelTecnicoEntrada() {
     setAparelho('');
     setProblema('');
     setValor('');
+    setCustoPecas('');
     setGarantia('90 dias'); 
     setPecas([]);
     setHistorico([]);
@@ -98,7 +99,6 @@ export default function PainelTecnicoEntrada() {
     setNovaObs('');
 
     try {
-      // Sincroniza imediatamente com o banco
       const { error } = await supabase
         .from('servicos_tecnico')
         .update({ historico_logs: novoHistorico })
@@ -109,7 +109,6 @@ export default function PainelTecnicoEntrada() {
       if (error) throw error;
     } catch (error) {
       console.error("Erro ao salvar log:", error.message);
-      alert("Erro ao sincronizar log com o banco de dados.");
     }
   };
 
@@ -132,7 +131,7 @@ export default function PainelTecnicoEntrada() {
       if (arquivosFotos.length > 0) {
         for (const file of arquivosFotos) {
           const fileName = `os/${Date.now()}_${file.name.replace(/\s/g, '_')}`;
-          const { data, error: uploadError } = await supabase.storage
+          const { data } = await supabase.storage
             .from('os-fotos')
             .upload(fileName, file);
           
@@ -140,10 +139,10 @@ export default function PainelTecnicoEntrada() {
         }
       }
 
-      // Limpeza de dados para evitar strings vazias ou nulas
       const historicoLimpo = historico.filter(h => h && h.trim() !== "");
       const pecasLimpas = pecas.filter(p => p && p.trim() !== "");
 
+      // ALTERAÇÃO AQUI: Garante que lista_pecas seja enviado como Array e pecas_usadas como número
       const { error } = await supabase
         .from('servicos_tecnico')
         .upsert([{ 
@@ -152,12 +151,12 @@ export default function PainelTecnicoEntrada() {
           equipamento: aparelho,
           status: statusFinal,
           descricao: problema,
-          // CORREÇÃO: Usando o nome exato da coluna no seu banco ('preço')
           preço: parseFloat(valor) || 0, 
+          pecas_usadas: parseFloat(custoPecas) || 0,
+          lista_pecas: pecasLimpas.length > 0 ? pecasLimpas : [], // Envia array vazio em vez de null
           garantia: garantia,
-          tempo: new Date(),
-          pecas_usadas: pecasLimpas.length > 0 ? pecasLimpas : null,
-          historico_logs: historicoLimpo.length > 0 ? historicoLimpo : null,
+          tempo: new Date().toISOString(), // ISOString evita erros de fuso horário no banco
+          historico_logs: historicoLimpo.length > 0 ? historicoLimpo : [],
           fotos_url: linksFotos 
         }], { onConflict: 'cliente, equipamento' });
 
@@ -219,11 +218,11 @@ export default function PainelTecnicoEntrada() {
           </div>
 
           <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-800">
-            <h3 className="text-white font-bold mb-4">🛠 Peças Substituídas</h3>
+            <h3 className="text-white font-bold mb-4">🛠 Peças Substituídas (Nomes)</h3>
             <div className="flex gap-2 mb-4">
               <input 
                 className="flex-1 bg-[#0f172a] border border-slate-700 rounded-lg p-2 text-white outline-none" 
-                placeholder="Nova peça..."
+                placeholder="Ex: Tela LCD, Conector..."
                 value={novaPeca} onChange={(e) => setNovaPeca(e.target.value)}
               />
               <button type="button" onClick={adicionarPeca} className="bg-blue-600 hover:bg-blue-700 px-6 rounded-lg font-bold">+</button>
@@ -275,8 +274,16 @@ export default function PainelTecnicoEntrada() {
             <label className="block text-center text-xs font-bold text-slate-500 mb-2 uppercase tracking-widest">Valor do Serviço (R$)</label>
             <input 
               type="number" 
-              className="w-full bg-[#0f172a] border-2 border-emerald-900/30 rounded-lg p-4 text-3xl text-center font-bold text-emerald-400 outline-none mb-6"
+              className="w-full bg-[#0f172a] border-2 border-emerald-900/30 rounded-lg p-4 text-3xl text-center font-bold text-emerald-400 outline-none mb-4"
               value={valor} onChange={(e) => setValor(e.target.value)}
+              placeholder="0,00"
+            />
+
+            <label className="block text-center text-[10px] font-bold text-red-400/60 mb-2 uppercase tracking-widest">Custo Total das Peças (R$)</label>
+            <input 
+              type="number" 
+              className="w-full bg-[#0f172a] border border-red-900/20 rounded-lg p-2 text-xl text-center font-bold text-red-400 outline-none mb-6"
+              value={custoPecas} onChange={(e) => setCustoPecas(e.target.value)}
               placeholder="0,00"
             />
 
