@@ -13,6 +13,14 @@ export default function AdminDashboard() {
   const [novoTecnico, setNovoTecnico] = useState({ nome: '', email: '', senha: '' });
   const [statusCadastro, setStatusCadastro] = useState('');
 
+  // --- NOVO ESTADO PARA ORÇAMENTOS ---
+  const [orcamentoData, setOrcamentoData] = useState({
+    servicoId: '',
+    diagnostico: '',
+    prazo: '',
+    valorTotal: 0
+  });
+
   useEffect(() => {
     checkAdmin();
   }, []);
@@ -68,6 +76,45 @@ export default function AdminDashboard() {
     if (!error) setTecnicos(data);
   }
 
+  // --- FUNÇÕES DE ORÇAMENTO ---
+  async function salvarDiagnostico() {
+    if (!orcamentoData.servicoId) return alert("Selecione um serviço primeiro!");
+    try {
+      const { error } = await supabase
+        .from('servicos_tecnico')
+        .update({ 
+          diagnostico_tecnico: orcamentoData.diagnostico,
+          status: 'Aguardando Aprovação',
+          preço: orcamentoData.valorTotal
+        })
+        .eq('id', orcamentoData.servicoId);
+
+      if (error) throw error;
+      alert("✅ Diagnóstico salvo no sistema!");
+      fetchDadosReais();
+    } catch (error) {
+      alert("Erro ao salvar: " + error.message);
+    }
+  }
+
+  function enviarOrcamentoWhatsApp() {
+    const servico = servicos.find(s => s.id === orcamentoData.servicoId);
+    if (!servico) return alert("Selecione um serviço!");
+
+    const mensagem = `*ORÇAMENTO TÉCNICO - ${servico.equipamento}*
+---------------------------------------
+*Cliente:* ${servico.cliente || 'Prezado(a)'}
+*Diagnóstico:* ${orcamentoData.diagnostico}
+*Prazo:* ${orcamentoData.prazo}
+*Valor Total:* R$ ${Number(orcamentoData.valorTotal).toFixed(2)}
+---------------------------------------
+_Para aprovar este serviço, responda esta mensagem._`.trim();
+
+    const fone = servico.telefone ? servico.telefone.replace(/\D/g, '') : '';
+    const url = `https://api.whatsapp.com/send?phone=${fone}&text=${encodeURIComponent(mensagem)}`;
+    window.open(url, '_blank');
+  }
+
   async function cadastrarTecnico(e) {
     e.preventDefault();
     setStatusCadastro('⏳ Cadastrando...');
@@ -94,16 +141,12 @@ export default function AdminDashboard() {
     return s.includes('finalizado') || s.includes('resolvido');
   };
 
-  const hoje = new Date();
   const conv = (v) => Number(v) || 0;
 
-  // --- CÁLCULOS CORRIGIDOS ---
-  
   const faturamentoTotal = servicos
     .filter(s => isFinalizado(s.status))
     .reduce((acc, s) => acc + conv(s.preço), 0);
   
-  // Alterado para ler 'custo_pecas', que é onde os dados estão no seu banco
   const gastosPecas = servicos
     .filter(s => isFinalizado(s.status))
     .reduce((acc, s) => acc + conv(s.custo_pecas), 0);
@@ -126,6 +169,7 @@ export default function AdminDashboard() {
           {[
             { id: 'geral', label: 'Visão Geral', icon: '📊' },
             { id: 'servicos', label: 'Todos os Serviços', icon: '🛠️' },
+            { id: 'orcamentos', label: 'Gerar Orçamento', icon: '📝', color: 'blue' },
             { id: 'tecnicos', label: 'Gestão de Técnicos', icon: '👥', color: 'indigo' },
             { id: 'relatorios', label: 'Relatórios Técnicos', icon: '📋' },
             { id: 'finalizados', label: 'Finalizados', icon: '✅', color: 'green' }
@@ -191,6 +235,70 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {/* ABA DE ORÇAMENTOS (NOVA) */}
+          {abaAtiva === 'orcamentos' && (
+            <div className="max-w-4xl mx-auto space-y-8">
+              <div className="bg-slate-900 p-10 rounded-3xl border border-slate-800 shadow-2xl">
+                <h3 className="text-3xl font-black text-white tracking-tighter italic mb-8 uppercase">Gerar Orçamento Oficial</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Selecionar Serviço Aberto</label>
+                    <select 
+                      className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold"
+                      value={orcamentoData.servicoId}
+                      onChange={(e) => {
+                        const s = servicos.find(item => item.id === e.target.value);
+                        setOrcamentoData({...orcamentoData, servicoId: e.target.value, valorTotal: s?.preço || 0});
+                      }}
+                    >
+                      <option value="">Selecione um equipamento...</option>
+                      {servicos.filter(s => !isFinalizado(s.status)).map(s => (
+                        <option key={s.id} value={s.id}>{s.equipamento} - {s.cliente}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Prazo de Entrega (Dias)</label>
+                    <input 
+                      type="text" 
+                      placeholder="Ex: 3 a 5 dias úteis"
+                      className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold"
+                      value={orcamentoData.prazo}
+                      onChange={(e) => setOrcamentoData({...orcamentoData, prazo: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Valor do Orçamento (R$)</label>
+                  <input 
+                    type="number" 
+                    className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold"
+                    value={orcamentoData.valorTotal}
+                    onChange={(e) => setOrcamentoData({...orcamentoData, valorTotal: e.target.value})}
+                  />
+                </div>
+
+                <div className="mt-6">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Diagnóstico Técnico</label>
+                  <textarea 
+                    className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold h-32"
+                    placeholder="Descreva o defeito encontrado..."
+                    value={orcamentoData.diagnostico}
+                    onChange={(e) => setOrcamentoData({...orcamentoData, diagnostico: e.target.value})}
+                  />
+                </div>
+
+                <div className="mt-8 flex gap-4">
+                  <button onClick={enviarOrcamentoWhatsApp} className="flex-1 bg-green-600 hover:bg-green-500 text-white font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-2">📱 Enviar via WhatsApp</button>
+                  <button onClick={salvarDiagnostico} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest text-xs transition-all">Salvar Diagnóstico</button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {abaAtiva === 'tecnicos' && (
             <div className="space-y-10">
               <div className="max-w-xl mx-auto bg-slate-900 p-10 rounded-3xl border border-slate-800 shadow-2xl">
@@ -236,7 +344,6 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* NOVA SEÇÃO: RELATÓRIOS TÉCNICOS */}
           {abaAtiva === 'relatorios' && (
             <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl">
               <div className="p-6 border-b border-slate-800">
