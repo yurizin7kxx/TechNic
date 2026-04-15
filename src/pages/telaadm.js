@@ -13,6 +13,10 @@ export default function AdminDashboard() {
   const [novoTecnico, setNovoTecnico] = useState({ nome: '', email: '', senha: '' });
   const [statusCadastro, setStatusCadastro] = useState('');
 
+  // --- ESTADOS PARA CRUD DE SERVIÇOS ---
+  const [modalAberto, setModalAberto] = useState(false);
+  const [servicoEditando, setServicoEditando] = useState(null);
+
   // --- NOVO ESTADO PARA ORÇAMENTOS ---
   const [orcamentoData, setOrcamentoData] = useState({
     servicoId: '',
@@ -74,6 +78,49 @@ export default function AdminDashboard() {
       .order('nome_completo', { ascending: true });
 
     if (!error) setTecnicos(data);
+  }
+
+  // --- FUNÇÕES CRUD SERVIÇOS ---
+  const abrirModalNovo = () => {
+    setServicoEditando({ equipamento: '', cliente: '', status: 'Em Análise', preço: 0, custo_pecas: 0, telefone: '', descricao: '' });
+    setModalAberto(true);
+  };
+
+  const abrirModalEditar = (servico) => {
+    setServicoEditando(servico);
+    setModalAberto(true);
+  };
+
+  async function salvarServico(e) {
+    e.preventDefault();
+    try {
+      const payload = { 
+        ...servicoEditando, 
+        preço: Number(servicoEditando.preço), 
+        custo_pecas: Number(servicoEditando.custo_pecas) 
+      };
+
+      if (servicoEditando.id) {
+        const { error } = await supabase.from('servicos_tecnico').update(payload).eq('id', servicoEditando.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('servicos_tecnico').insert([payload]);
+        if (error) throw error;
+      }
+      
+      setModalAberto(false);
+      fetchDadosReais();
+      alert("✅ Sucesso!");
+    } catch (err) { 
+      alert("Erro: " + err.message); 
+    }
+  }
+
+  async function excluirServico(id) {
+    if (confirm("Deseja excluir este serviço permanentemente?")) {
+      const { error } = await supabase.from('servicos_tecnico').delete().eq('id', id);
+      if (!error) fetchDadosReais();
+    }
   }
 
   // --- FUNÇÕES DE ORÇAMENTO ---
@@ -235,7 +282,7 @@ _Para aprovar este serviço, responda esta mensagem._`.trim();
             </div>
           )}
 
-          {/* ABA DE ORÇAMENTOS (NOVA) */}
+          {/* ABA DE ORÇAMENTOS */}
           {abaAtiva === 'orcamentos' && (
             <div className="max-w-4xl mx-auto space-y-8">
               <div className="bg-slate-900 p-10 rounded-3xl border border-slate-800 shadow-2xl">
@@ -377,26 +424,118 @@ _Para aprovar este serviço, responda esta mensagem._`.trim();
           )}
 
           {(abaAtiva === 'servicos' || abaAtiva === 'finalizados') && (
-            <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl">
-              <table className="w-full text-left">
-                <thead className="bg-slate-800/50 text-slate-500 text-[10px] font-black uppercase tracking-widest">
-                  <tr> <th className="p-6">Equipamento</th> <th className="p-6">Cliente</th> {abaAtiva === 'finalizados' ? <th className="p-6">Valor</th> : <th className="p-6">Status</th>} <th className="p-6 text-right">Data</th> </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800">
-                  {servicos.filter(s => abaAtiva === 'finalizados' ? isFinalizado(s.status) : true).map(s => (
-                    <tr key={s.id} className="hover:bg-slate-800/30 transition-all font-bold">
-                      <td className="p-6 text-slate-200">{s.equipamento}</td>
-                      <td className="p-6 text-sm text-slate-400">{s.cliente || '---'}</td>
-                      <td className="p-6">{abaAtiva === 'finalizados' ? <span className="text-emerald-400 font-mono">R$ {conv(s.preço).toFixed(2)}</span> : <span className={`px-3 py-1 rounded-full text-[10px] uppercase ${isFinalizado(s.status) ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>{s.status}</span>}</td>
-                      <td className="p-6 text-right text-xs text-slate-600">{s.tempo ? new Date(s.tempo).toLocaleDateString('pt-BR') : '---'}</td>
+            <div className="space-y-6">
+              {abaAtiva === 'servicos' && (
+                <div className="flex justify-between items-center">
+                  <h3 className="text-2xl font-black uppercase italic tracking-tighter">Gerenciamento de Serviços</h3>
+                  <button onClick={abrirModalNovo} className="bg-blue-600 hover:bg-blue-500 px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-blue-900/40">
+                    + Novo Serviço
+                  </button>
+                </div>
+              )}
+              <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-800/50 text-slate-500 text-[10px] font-black uppercase tracking-widest">
+                    <tr> 
+                      <th className="p-6">Equipamento</th> 
+                      <th className="p-6">Cliente</th> 
+                      {abaAtiva === 'finalizados' ? <th className="p-6">Valor</th> : <th className="p-6">Status</th>} 
+                      <th className="p-6 text-right">Ações / Data</th> 
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {servicos.filter(s => abaAtiva === 'finalizados' ? isFinalizado(s.status) : true).map(s => (
+                      <tr key={s.id} className="hover:bg-slate-800/30 transition-all font-bold">
+                        <td className="p-6 text-slate-200">{s.equipamento}</td>
+                        <td className="p-6 text-sm text-slate-400">{s.cliente || '---'}</td>
+                        <td className="p-6">
+                          {abaAtiva === 'finalizados' ? (
+                            <span className="text-emerald-400 font-mono">R$ {conv(s.preço).toFixed(2)}</span>
+                          ) : (
+                            <span className={`px-3 py-1 rounded-full text-[10px] uppercase ${isFinalizado(s.status) ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>
+                              {s.status}
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-6 text-right">
+                          {abaAtiva === 'servicos' ? (
+                            <div className="flex justify-end gap-3">
+                              <button onClick={() => abrirModalEditar(s)} className="text-blue-500 hover:text-blue-400 text-[10px] font-black uppercase tracking-widest">Editar</button>
+                              <button onClick={() => excluirServico(s.id)} className="text-red-500 hover:text-red-400 text-[10px] font-black uppercase tracking-widest">Excluir</button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-600">{s.tempo ? new Date(s.tempo).toLocaleDateString('pt-BR') : '---'}</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
       </main>
+
+      {/* MODAL PARA NOVO / EDITAR SERVIÇO */}
+      {modalAberto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+          <div className="bg-slate-900 border-2 border-slate-800 w-full max-w-2xl rounded-3xl shadow-2xl p-10 overflow-y-auto max-h-[90vh]">
+            <h3 className="text-3xl font-black text-white mb-8 tracking-tighter italic uppercase">
+              {servicoEditando?.id ? 'Atualizar Registro' : 'Novo Registro de Entrada'}
+            </h3>
+            <form onSubmit={salvarServico} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Equipamento</label>
+                  <input className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600" value={servicoEditando.equipamento} onChange={e => setServicoEditando({...servicoEditando, equipamento: e.target.value})} required />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Cliente</label>
+                  <input className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600" value={servicoEditando.cliente} onChange={e => setServicoEditando({...servicoEditando, cliente: e.target.value})} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Preço Final (R$)</label>
+                  <input type="number" className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600" value={servicoEditando.preço} onChange={e => setServicoEditando({...servicoEditando, preço: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Custo de Peças (R$)</label>
+                  <input type="number" className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600" value={servicoEditando.custo_pecas} onChange={e => setServicoEditando({...servicoEditando, custo_pecas: e.target.value})} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Telefone do Cliente</label>
+                  <input className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600" placeholder="Ex: 11999999999" value={servicoEditando.telefone} onChange={e => setServicoEditando({...servicoEditando, telefone: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Status Atual</label>
+                  <select className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600" value={servicoEditando.status} onChange={e => setServicoEditando({...servicoEditando, status: e.target.value})}>
+                    <option value="Em Análise">Em Análise</option>
+                    <option value="Aguardando Aprovação">Aguardando Aprovação</option>
+                    <option value="Em Manutenção">Em Manutenção</option>
+                    <option value="Pronto - Aguardando Retirada">Pronto - Aguardando Retirada</option>
+                    <option value="Finalizado">Finalizado</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-4 pt-6">
+                <button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest text-xs transition-all">
+                  Confirmar e Salvar
+                </button>
+                <button type="button" onClick={() => setModalAberto(false)} className="px-8 bg-slate-800 hover:bg-slate-700 text-slate-400 font-black py-5 rounded-2xl uppercase tracking-widest text-xs transition-all">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
