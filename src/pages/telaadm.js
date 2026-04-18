@@ -13,11 +13,14 @@ export default function AdminDashboard() {
   const [novoTecnico, setNovoTecnico] = useState({ nome: '', email: '', senha: '' });
   const [statusCadastro, setStatusCadastro] = useState('');
 
-  // --- ESTADOS PARA CRUD DE SERVIÇOS ---
+  // --- NOVOS ESTADOS PARA CLIENTES ---
+  const [clientes, setClientes] = useState([]);
+  const [novoCliente, setNovoCliente] = useState({ nome: '', cpf_cnpj: '', email: '', telefone: '', endereco: '' });
+  const [statusCliente, setStatusCliente] = useState('');
+
   const [modalAberto, setModalAberto] = useState(false);
   const [servicoEditando, setServicoEditando] = useState(null);
 
-  // --- NOVO ESTADO PARA ORÇAMENTOS ---
   const [orcamentoData, setOrcamentoData] = useState({
     servicoId: '',
     diagnostico: '',
@@ -30,9 +33,8 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    if (abaAtiva === 'tecnicos') {
-      fetchTecnicos();
-    }
+    if (abaAtiva === 'tecnicos') fetchTecnicos();
+    if (abaAtiva === 'clientes') fetchClientes(); // Busca clientes ao abrir aba
   }, [abaAtiva]);
 
   async function checkAdmin() {
@@ -80,9 +82,41 @@ export default function AdminDashboard() {
     if (!error) setTecnicos(data);
   }
 
-  // --- FUNÇÕES CRUD SERVIÇOS ---
+  // --- FUNÇÕES DE GESTÃO DE CLIENTES ---
+  async function fetchClientes() {
+    const { data, error } = await supabase
+      .from('clientes')
+      .select('*')
+      .order('nome', { ascending: true });
+    if (!error) setClientes(data);
+  }
+
+  async function cadastrarCliente(e) {
+    e.preventDefault();
+    setStatusCliente('⏳ Salvando...');
+    try {
+      const { error } = await supabase.from('clientes').insert([novoCliente]);
+      if (error) throw error;
+      setStatusCliente('✅ Cliente cadastrado!');
+      setNovoCliente({ nome: '', cpf_cnpj: '', email: '', telefone: '', endereco: '' });
+      fetchClientes();
+    } catch (error) {
+      setStatusCliente('❌ Erro: ' + error.message);
+    }
+  }
+
   const abrirModalNovo = () => {
-    setServicoEditando({ equipamento: '', cliente: '', status: 'Em Análise', preço: 0, custo_pecas: 0, telefone: '', descricao: '' });
+    setServicoEditando({ 
+        equipamento: '', 
+        cliente: '', 
+        cpf_cnpj: '', 
+        endereco: '', 
+        status: 'Em Análise', 
+        preço: 0, 
+        custo_pecas: 0, 
+        telefone: '', 
+        descricao: '' 
+    });
     setModalAberto(true);
   };
 
@@ -123,7 +157,6 @@ export default function AdminDashboard() {
     }
   }
 
-  // --- FUNÇÕES DE ORÇAMENTO ---
   async function salvarDiagnostico() {
     if (!orcamentoData.servicoId) return alert("Selecione um serviço primeiro!");
     try {
@@ -216,6 +249,7 @@ _Para aprovar este serviço, responda esta mensagem._`.trim();
           {[
             { id: 'geral', label: 'Visão Geral', icon: '📊' },
             { id: 'servicos', label: 'Todos os Serviços', icon: '🛠️' },
+            { id: 'clientes', label: 'Gestão de Clientes', icon: '👤', color: 'blue' }, // NOVO BOTÃO
             { id: 'orcamentos', label: 'Gerar Orçamento', icon: '📝', color: 'blue' },
             { id: 'tecnicos', label: 'Gestão de Técnicos', icon: '👥', color: 'indigo' },
             { id: 'relatorios', label: 'Relatórios Técnicos', icon: '📋' },
@@ -282,7 +316,65 @@ _Para aprovar este serviço, responda esta mensagem._`.trim();
             </div>
           )}
 
-          {/* ABA DE ORÇAMENTOS */}
+          {/* --- NOVA ABA: GESTÃO DE CLIENTES --- */}
+          {abaAtiva === 'clientes' && (
+            <div className="space-y-10">
+              <div className="max-w-3xl mx-auto bg-slate-900 p-10 rounded-3xl border border-slate-800 shadow-2xl">
+                <h3 className="text-3xl font-black text-white tracking-tighter italic mb-8 uppercase">Novo Cliente</h3>
+                <form onSubmit={cadastrarCliente} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Nome Completo</label>
+                      <input type="text" className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold" value={novoCliente.nome} onChange={(e) => setNovoCliente({...novoCliente, nome: e.target.value})} required />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">CPF / CNPJ</label>
+                      <input type="text" className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold" value={novoCliente.cpf_cnpj} onChange={(e) => setNovoCliente({...novoCliente, cpf_cnpj: e.target.value})} required />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">E-mail</label>
+                      <input type="email" className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold" value={novoCliente.email} onChange={(e) => setNovoCliente({...novoCliente, email: e.target.value})} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Telefone</label>
+                      <input type="text" className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold" value={novoCliente.telefone} onChange={(e) => setNovoCliente({...novoCliente, telefone: e.target.value})} required />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Endereço Completo</label>
+                    <input type="text" className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold" value={novoCliente.endereco} onChange={(e) => setNovoCliente({...novoCliente, endereco: e.target.value})} required />
+                  </div>
+                  <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest text-xs transition-all">Salvar Cliente</button>
+                </form>
+                {statusCliente && <div className={`mt-8 p-4 rounded-2xl text-center text-xs font-black uppercase ${statusCliente.includes('✅') ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>{statusCliente}</div>}
+              </div>
+
+              <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl">
+                <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+                  <h3 className="font-black text-xl italic text-slate-200 uppercase">Base de Clientes</h3>
+                  <span className="text-[10px] font-black bg-slate-800 px-3 py-1 rounded-full text-slate-500 uppercase">{clientes.length} Cadastrados</span>
+                </div>
+                <table className="w-full text-left">
+                  <thead className="bg-slate-800/50 text-slate-500 text-[10px] font-black uppercase">
+                    <tr><th className="p-6">Nome</th><th className="p-6">Documento</th><th className="p-6">Contato</th><th className="p-6 text-right">Endereço</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {clientes.map(c => (
+                      <tr key={c.id} className="hover:bg-slate-800/30 transition-all font-bold">
+                        <td className="p-6 text-slate-200">{c.nome}</td>
+                        <td className="p-6 text-sm text-slate-400 font-mono">{c.cpf_cnpj}</td>
+                        <td className="p-6 text-sm text-slate-400">{c.telefone}</td>
+                        <td className="p-6 text-right text-[10px] text-slate-500 uppercase">{c.endereco}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {abaAtiva === 'orcamentos' && (
             <div className="max-w-4xl mx-auto space-y-8">
               <div className="bg-slate-900 p-10 rounded-3xl border border-slate-800 shadow-2xl">
@@ -477,7 +569,7 @@ _Para aprovar este serviço, responda esta mensagem._`.trim();
         </div>
       </main>
 
-      {/* MODAL PARA NOVO / EDITAR SERVIÇO */}
+      {/* MODAL SERVIÇO */}
       {modalAberto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
           <div className="bg-slate-900 border-2 border-slate-800 w-full max-w-2xl rounded-3xl shadow-2xl p-10 overflow-y-auto max-h-[90vh]">
@@ -495,7 +587,16 @@ _Para aprovar este serviço, responda esta mensagem._`.trim();
                   <input className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600" value={servicoEditando.cliente} onChange={e => setServicoEditando({...servicoEditando, cliente: e.target.value})} />
                 </div>
               </div>
-
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">CPF / CNPJ</label>
+                  <input className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600" value={servicoEditando.cpf_cnpj} onChange={e => setServicoEditando({...servicoEditando, cpf_cnpj: e.target.value})} required />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Endereço Completo</label>
+                  <input className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600" value={servicoEditando.endereco} onChange={e => setServicoEditando({...servicoEditando, endereco: e.target.value})} required />
+                </div>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Preço Final (R$)</label>
@@ -506,11 +607,10 @@ _Para aprovar este serviço, responda esta mensagem._`.trim();
                   <input type="number" className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600" value={servicoEditando.custo_pecas} onChange={e => setServicoEditando({...servicoEditando, custo_pecas: e.target.value})} />
                 </div>
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Telefone do Cliente</label>
-                  <input className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600" placeholder="Ex: 11999999999" value={servicoEditando.telefone} onChange={e => setServicoEditando({...servicoEditando, telefone: e.target.value})} />
+                  <input className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600" value={servicoEditando.telefone} onChange={e => setServicoEditando({...servicoEditando, telefone: e.target.value})} required />
                 </div>
                 <div>
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Status Atual</label>
@@ -523,14 +623,9 @@ _Para aprovar este serviço, responda esta mensagem._`.trim();
                   </select>
                 </div>
               </div>
-
               <div className="flex gap-4 pt-6">
-                <button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest text-xs transition-all">
-                  Confirmar e Salvar
-                </button>
-                <button type="button" onClick={() => setModalAberto(false)} className="px-8 bg-slate-800 hover:bg-slate-700 text-slate-400 font-black py-5 rounded-2xl uppercase tracking-widest text-xs transition-all">
-                  Cancelar
-                </button>
+                <button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest text-xs transition-all">Confirmar e Salvar</button>
+                <button type="button" onClick={() => setModalAberto(false)} className="px-8 bg-slate-800 hover:bg-slate-700 text-slate-400 font-black py-5 rounded-2xl uppercase tracking-widest text-xs transition-all">Cancelar</button>
               </div>
             </form>
           </div>
