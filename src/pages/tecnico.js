@@ -16,6 +16,7 @@ export default function PainelTecnicoEntrada() {
   const [novaObs, setNovaObs] = useState('');
   const [fotos, setFotos] = useState([]); 
   const [arquivosFotos, setArquivosFotos] = useState([]); 
+  const [aceiteCliente, setAceiteCliente] = useState(false);
 
   useEffect(() => {
     async function carregarClientes() {
@@ -57,6 +58,7 @@ export default function PainelTecnicoEntrada() {
         setValor(data.preço?.toString() || '');
         setCustoPecas(data.valor_pecas?.toString() || '');
         setGarantia(data.garantia || '90 dias');
+        setAceiteCliente(data.aceite_cliente || false); 
         
         if (data.peca_substituida) {
           setPecas(data.peca_substituida.split(', ').filter(p => p.trim() !== ''));
@@ -84,6 +86,7 @@ export default function PainelTecnicoEntrada() {
     setHistorico([]);
     setFotos([]);
     setArquivosFotos([]);
+    setAceiteCliente(false);
   };
 
   const adicionarPeca = () => {
@@ -126,9 +129,13 @@ export default function PainelTecnicoEntrada() {
   };
 
   const salvarNovaOS = async (statusFinal) => {
-    // --- VALIDAÇÃO DE CAMPOS OBRIGATÓRIOS ---
     if (!clienteSelecionado) return alert("Selecione um Cliente!");
     if (!aparelho.trim()) return alert("Informe o Aparelho/Modelo!");
+    
+    if (!aceiteCliente && (statusFinal === 'Em_Manutencao' || statusFinal === 'Finalizado')) {
+        return alert("O cliente precisa aceitar o orçamento antes de iniciar ou finalizar o serviço!");
+    }
+
     if (!problema.trim()) return alert("Descreva o Problema!");
     if (!valor || parseFloat(valor) <= 0) return alert("Informe o Valor do Serviço!");
     if (!custoPecas || parseFloat(custoPecas) < 0) return alert("Informe o Custo das Peças (pode ser 0)!");
@@ -139,7 +146,6 @@ export default function PainelTecnicoEntrada() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Você precisa estar logado.");
 
-      // Upload de fotos
       let linksFotos = [];
       if (arquivosFotos.length > 0) {
         for (const file of arquivosFotos) {
@@ -157,19 +163,19 @@ export default function PainelTecnicoEntrada() {
       const pecasLimpas = pecas.filter(p => p && p.trim() !== "");
       const pecasString = pecasLimpas.join(', ');
 
-      // UPSERT - Atualiza se existir (cliente+equipamento) ou cria novo
       const { error } = await supabase
         .from('servicos_tecnico')
         .upsert([{ 
           cliente: clienteSelecionado,
           tecnico: user.id,
           equipamento: aparelho,
-          status: statusFinal, // Status vem do botão clicado
+          status: statusFinal,
           descricao: problema,
           preço: parseFloat(valor), 
           valor_pecas: parseFloat(custoPecas),
           peca_substituida: pecasString,
           garantia: garantia,
+          aceite_cliente: aceiteCliente,
           tempo: new Date().toISOString(),
           historico_logs: historicoLimpo,
           fotos_url: linksFotos 
@@ -179,7 +185,6 @@ export default function PainelTecnicoEntrada() {
       
       alert(`✅ OS atualizada para: ${statusFinal.replace(/_/g, ' ')}`);
       
-      // Se finalizar, limpa a tela. Se for apenas mudar status, pode manter ou limpar.
       if (statusFinal === 'Finalizado') {
         limparCampos();
       }
@@ -195,7 +200,7 @@ export default function PainelTecnicoEntrada() {
     <div className="min-h-screen bg-[#0f172a] text-slate-200 p-8 font-sans">
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* COLUNA DA ESQUERDA: DADOS */}
+        {/* COLUNA DA ESQUERDA */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-800 shadow-xl">
             <h2 className="text-xl font-bold text-white mb-6 border-b border-slate-700 pb-2 flex items-center gap-2">
@@ -263,7 +268,7 @@ export default function PainelTecnicoEntrada() {
           </div>
         </div>
 
-        {/* COLUNA DA DIREITA: FINANCEIRO E STATUS */}
+        {/* COLUNA DA DIREITA */}
         <div className="space-y-6">
           <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-800 shadow-xl">
             <h3 className="text-white font-bold mb-4">📜 Logs Internos</h3>
@@ -283,11 +288,12 @@ export default function PainelTecnicoEntrada() {
             </div>
           </div>
 
-          <div className="bg-[#1e293b] p-6 rounded-xl border-2 border-emerald-500/20 shadow-2xl">
+          {/* CARD DE VALOR E CONTROLE DE STATUS */}
+          <div className={`bg-[#1e293b] p-6 rounded-xl border-2 transition-all duration-500 shadow-2xl ${aceiteCliente ? 'border-emerald-500' : 'border-slate-800'}`}>
             <label className="block text-center text-xs font-bold text-slate-500 mb-2 uppercase tracking-widest">Valor do Serviço *</label>
             <input 
               type="number" 
-              className="w-full bg-[#0f172a] border-2 border-emerald-900/30 rounded-lg p-4 text-3xl text-center font-bold text-emerald-400 outline-none mb-4"
+              className={`w-full bg-[#0f172a] border-2 rounded-lg p-4 text-3xl text-center font-bold outline-none mb-4 transition-all ${aceiteCliente ? 'border-emerald-500 text-emerald-400' : 'border-slate-700 text-slate-400'}`}
               value={valor} onChange={(e) => setValor(e.target.value)}
             />
 
@@ -298,13 +304,23 @@ export default function PainelTecnicoEntrada() {
               value={custoPecas} onChange={(e) => setCustoPecas(e.target.value)}
             />
 
-            <div className="mb-6">
+            <div className="mb-4">
               <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-widest">Garantia</label>
               <select className="w-full bg-[#0f172a] p-3 rounded-lg text-white" value={garantia} onChange={(e) => setGarantia(e.target.value)}>
                 <option value="Sem Garantia">Sem Garantia</option>
                 <option value="90 dias">90 dias</option>
                 <option value="1 ano">1 ano</option>
               </select>
+            </div>
+
+            {/* ÚNICO INDICADOR DE ACEITE DO CLIENTE */}
+            <div 
+                className={`mb-6 p-4 rounded-lg border-2 transition-all flex items-center gap-3 ${aceiteCliente ? 'bg-emerald-900/40 border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)] animate-pulse' : 'bg-slate-800 border-slate-700 opacity-50'}`}
+            >
+                <div className={`w-3 h-3 rounded-full ${aceiteCliente ? 'bg-emerald-400 shadow-[0_0_10px_#10b981]' : 'bg-slate-600'}`}></div>
+                <span className={`text-xs font-black uppercase tracking-widest ${aceiteCliente ? 'text-emerald-400' : 'text-slate-400'}`}>
+                    {aceiteCliente ? 'ORÇAMENTO ACEITO' : 'AGUARDANDO CLIENTE'}
+                </span>
             </div>
             
             <div className="space-y-3">
@@ -321,7 +337,7 @@ export default function PainelTecnicoEntrada() {
                 type="button" 
                 onClick={() => salvarNovaOS('Em_Manutencao')} 
                 disabled={loading} 
-                className="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg font-bold text-white transition-all active:scale-95"
+                className={`w-full py-3 rounded-lg font-bold text-white transition-all active:scale-95 ${aceiteCliente ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-900/20 text-blue-500/50 cursor-not-allowed opacity-50'}`}
               >
                 {loading ? 'Processando...' : 'INICIAR REPARO'}
               </button>
@@ -330,7 +346,7 @@ export default function PainelTecnicoEntrada() {
                 type="button" 
                 onClick={() => salvarNovaOS('Finalizado')} 
                 disabled={loading} 
-                className="w-full bg-emerald-600 hover:bg-emerald-700 py-4 rounded-lg font-bold text-white shadow-lg transition-all active:scale-95"
+                className={`w-full py-4 rounded-lg font-bold text-white shadow-lg transition-all active:scale-95 ${aceiteCliente ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-emerald-900/20 text-emerald-500/50 cursor-not-allowed opacity-50'}`}
               >
                 {loading ? 'Finalizando...' : 'FINALIZAR SERVIÇO'}
               </button>
