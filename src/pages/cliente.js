@@ -20,7 +20,7 @@ export default function DetalhesOSPage() {
   const [os, setOs] = useState(null);
   const [loading, setLoading] = useState(true);
   const [enviandoAceite, setEnviandoAceite] = useState(false);
-  const [enviandoRecusa, setEnviandoRecusa] = useState(false); // Novo estado para recusa
+  const [enviandoRecusa, setEnviandoRecusa] = useState(false);
 
   async function carregarDadosOS() {
     setLoading(true);
@@ -31,19 +31,11 @@ export default function DetalhesOSPage() {
         return; 
       }
 
-      const { data: perfil } = await supabase
-        .from('perfis')
-        .select('nome_completo')
-        .eq('id', user.id)
-        .single();
-
-      const nomeParaBusca = perfil?.nome_completo?.trim();
-      const emailParaBusca = user.email?.trim();
-
+      // BUSCA OTIMIZADA: Usando o ID do usuário logado diretamente na coluna cliente_id
       const { data, error } = await supabase
         .from('servicos_tecnico')
         .select('*')
-        .or(`cliente.ilike.%${nomeParaBusca}%,cliente.ilike.%${emailParaBusca}%`)
+        .eq('cliente_id', user.id) // Busca exata pelo ID
         .neq('status', 'Finalizado') 
         .order('id', { ascending: false })
         .limit(1)
@@ -57,10 +49,17 @@ export default function DetalhesOSPage() {
           logsFormatados = [String(data.historico_logs)];
         }
 
+        // Buscamos o nome do perfil apenas para exibição visual na tela
+        const { data: perfil } = await supabase
+          .from('perfis')
+          .select('nome_completo')
+          .eq('id', user.id)
+          .single();
+
         setOs({
           id: data.id,
           aparelho: data.equipamento || "Dispositivo",
-          cliente_nome: data.cliente,
+          cliente_nome: perfil?.nome_completo || user.email, // Exibe o nome do perfil
           status: data.status,
           valor_total: Number(data.preço) || 0,
           problema_identificado: data.descricao,
@@ -102,7 +101,6 @@ export default function DetalhesOSPage() {
     }
   };
 
-  // NOVA FUNÇÃO: Recusar Orçamento
   const recusarOrcamento = async () => {
     if (!os?.id) return;
     const confirmou = confirm("Deseja realmente recusar este orçamento? O técnico será notificado.");
@@ -114,7 +112,7 @@ export default function DetalhesOSPage() {
         .from('servicos_tecnico')
         .update({ 
             aceite_cliente: false,
-            status: 'Recusado' // Opcional: define um status para o técnico ver
+            status: 'Recusado'
         })
         .eq('id', os.id);
 
@@ -146,6 +144,7 @@ export default function DetalhesOSPage() {
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-300 font-sans pb-24">
+      {/* ... (resto do seu HTML/JSX permanece igual) ... */}
       <nav className="sticky top-0 z-50 bg-[#020617]/80 backdrop-blur-2xl border-b border-white/5">
         <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
           <Link href="/" className="p-2 hover:bg-white/5 rounded-full transition-colors">
@@ -226,14 +225,13 @@ export default function DetalhesOSPage() {
 
           <div className="lg:col-span-4 space-y-6">
             <div className="bg-slate-900 p-8 rounded-[40px] border border-white/10 shadow-xl">
-               <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Total do Orçamento</span>
-               <div className="flex items-baseline gap-1 text-white mb-6">
-                  <span className="text-lg font-medium opacity-50">R$</span>
-                  <span className="text-5xl font-black tracking-tighter">{os.valor_total.toFixed(2)}</span>
-               </div>
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Total do Orçamento</span>
+                <div className="flex items-baseline gap-1 text-white mb-6">
+                   <span className="text-lg font-medium opacity-50">R$</span>
+                   <span className="text-5xl font-black tracking-tighter">{os.valor_total.toFixed(2)}</span>
+                </div>
 
-               {/* ÁREA DE AÇÕES: APROVAR OU RECUSAR */}
-               {!os.aceite_cliente && os.status !== 'Recusado' ? (
+                {!os.aceite_cliente && os.status !== 'Recusado' ? (
                   <div className="space-y-4">
                     <button 
                       onClick={confirmarAceite}
@@ -251,11 +249,11 @@ export default function DetalhesOSPage() {
                       {enviandoRecusa ? 'Cancelando...' : 'Não aceito o serviço'}
                     </button>
                   </div>
-               ) : (
+                ) : (
                   <div className={`w-full py-4 rounded-3xl text-center text-[10px] font-black uppercase tracking-widest border ${os.status === 'Recusado' ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>
                     {os.status === 'Recusado' ? 'Orçamento Recusado' : 'Orçamento Aprovado'}
                   </div>
-               )}
+                )}
             </div>
 
             <div className="bg-blue-600 p-8 rounded-[40px] shadow-xl shadow-blue-600/10 text-white">

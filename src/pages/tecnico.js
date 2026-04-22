@@ -35,9 +35,9 @@ export default function PainelTecnicoEntrada() {
     carregarClientes();
   }, []);
 
-  const handleSelecionarCliente = async (valorCliente) => {
-    setClienteSelecionado(valorCliente);
-    if (!valorCliente) {
+  const handleSelecionarCliente = async (valorClienteId) => {
+    setClienteSelecionado(valorClienteId);
+    if (!valorClienteId) {
       limparCampos(true);
       return;
     }
@@ -46,7 +46,7 @@ export default function PainelTecnicoEntrada() {
       const { data, error } = await supabase
         .from('servicos_tecnico')
         .select('*')
-        .eq('cliente', valorCliente)
+        .eq('cliente_id', valorClienteId) // Alterado para cliente_id
         .neq('status', 'Finalizado') 
         .order('tempo', { ascending: false })
         .limit(1)
@@ -111,8 +111,8 @@ export default function PainelTecnicoEntrada() {
       const { error } = await supabase
         .from('servicos_tecnico')
         .update({ historico_logs: novoHistorico })
-        .eq('cliente', clienteSelecionado)
-        .eq('equipamento', aparelho)
+        .eq('cliente_id', clienteSelecionado) // Alterado para cliente_id
+        .eq('equipamento', aparelho.trim()) // .trim() para evitar erro de restrição
         .neq('status', 'Finalizado');
 
       if (error) throw error;
@@ -163,12 +163,13 @@ export default function PainelTecnicoEntrada() {
       const pecasLimpas = pecas.filter(p => p && p.trim() !== "");
       const pecasString = pecasLimpas.join(', ');
 
+      // MANTENDO SEU UPSERT: apenas garanti o trim() no equipamento
       const { error } = await supabase
         .from('servicos_tecnico')
         .upsert([{ 
-          cliente: clienteSelecionado,
+          cliente_id: clienteSelecionado, 
           tecnico: user.id,
-          equipamento: aparelho,
+          equipamento: aparelho.trim(), // Garante que ignore espaços extras
           status: statusFinal,
           descricao: problema,
           preço: parseFloat(valor), 
@@ -179,7 +180,7 @@ export default function PainelTecnicoEntrada() {
           tempo: new Date().toISOString(),
           historico_logs: historicoLimpo,
           fotos_url: linksFotos 
-        }], { onConflict: 'cliente, equipamento' });
+        }], { onConflict: 'cliente_id, equipamento' });
 
       if (error) throw error;
       
@@ -216,7 +217,7 @@ export default function PainelTecnicoEntrada() {
                 >
                   <option value="">Selecione o cliente...</option>
                   {clientes.map(c => (
-                    <option key={c.id} value={c.nome_completo || c.email}>
+                    <option key={c.id} value={c.id}>
                       {c.nome_completo || c.email}
                     </option>
                   ))}
@@ -288,7 +289,6 @@ export default function PainelTecnicoEntrada() {
             </div>
           </div>
 
-          {/* CARD DE VALOR E CONTROLE DE STATUS */}
           <div className={`bg-[#1e293b] p-6 rounded-xl border-2 transition-all duration-500 shadow-2xl ${aceiteCliente ? 'border-emerald-500' : 'border-slate-800'}`}>
             <label className="block text-center text-xs font-bold text-slate-500 mb-2 uppercase tracking-widest">Valor do Serviço *</label>
             <input 
@@ -313,7 +313,6 @@ export default function PainelTecnicoEntrada() {
               </select>
             </div>
 
-            {/* ÚNICO INDICADOR DE ACEITE DO CLIENTE */}
             <div 
                 className={`mb-6 p-4 rounded-lg border-2 transition-all flex items-center gap-3 ${aceiteCliente ? 'bg-emerald-900/40 border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)] animate-pulse' : 'bg-slate-800 border-slate-700 opacity-50'}`}
             >
