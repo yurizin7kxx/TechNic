@@ -8,6 +8,8 @@ import { supabase } from '../../public/lib/supabase';
 
 export default function AdminDashboard() {
 
+  
+
   const cadastrarTecnico = async (e) => {
   e.preventDefault();
   setStatusCadastro('⏳ Salvando...');
@@ -321,7 +323,6 @@ const faturamentoSemanal = useMemo(() => {
             { id: 'orcamentos', label: 'Gerar Orçamento', icon: '📝', color: 'blue' },
             { id: 'tecnicos', label: 'Gestão de Técnicos', icon: '👥', color: 'indigo' },
             { id: 'relatorios', label: 'Relatórios Técnicos', icon: '📋' },
-            { id: 'laudo', label: 'Laudo Técnico', icon: '📄', color: 'blue' },
             { id: 'finalizados', label: 'Finalizados', icon: '✅', color: 'green' }
           ].map((item) => (
             <button key={item.id} onClick={() => setAbaAtiva(item.id)} className={`w-full text-left px-4 py-4 rounded-2xl font-bold transition-all flex items-center gap-3 ${abaAtiva === item.id ? (item.color === 'indigo' ? 'bg-indigo-600 shadow-lg shadow-indigo-900/20' : item.color === 'green' ? 'bg-green-600' : 'bg-blue-600 shadow-lg shadow-blue-900/20') : 'hover:bg-slate-800 text-slate-400'}`}>
@@ -1030,3 +1031,4 @@ const faturamentoSemanal = useMemo(() => {
 </main>
 </div>);
 }
+
