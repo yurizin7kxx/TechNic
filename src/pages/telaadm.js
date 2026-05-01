@@ -1,11 +1,79 @@
 // ✅ CÓDIGO COMPLETO CORRIGIDO (LÓGICA AJUSTADA, LAYOUT PRESERVADO)
 
 import { useEffect, useState, useMemo } from 'react';
+import Select from 'react-select';
 import { useRouter } from 'next/router';
 import { supabase } from '../../public/lib/supabase';
 
 
 export default function AdminDashboard() {
+
+  const cadastrarTecnico = async (e) => {
+  e.preventDefault();
+  setStatusCadastro('⏳ Salvando...');
+
+  try {
+    if (novoTecnico.id) {
+      const { error } = await supabase
+        .from('perfis')
+        .update({
+          nome_completo: novoTecnico.nome,
+          email: novoTecnico.email,
+        })
+        .eq('id', novoTecnico.id);
+
+      if (error) throw error;
+
+      setStatusCadastro('✅ Técnico atualizado!');
+    } else {
+      const { error } = await supabase
+        .from('perfis')
+        .insert([
+          {
+            nome_completo: novoTecnico.nome,
+            email: novoTecnico.email,
+            senha: novoTecnico.senha,
+            tipo_perfil: 'tecnico'
+          }
+        ]);
+
+      if (error) throw error;
+
+      setStatusCadastro('✅ Técnico cadastrado!');
+    }
+
+    setNovoTecnico({ nome: '', email: '', senha: '' });
+    fetchTecnicos();
+
+  } catch (err) {
+    console.error(err);
+    setStatusCadastro('❌ Erro ao salvar técnico');
+  }
+};
+
+const salvarDiagnostico = async () => {
+  try {
+    const { error } = await supabase
+      .from('servicos_tecnico')
+      .update({
+        diagnostico: orcamentoData.diagnostico,
+        prazo: orcamentoData.prazo,
+        preço: Number(orcamentoData.valorTotal)
+      })
+      .eq('id', orcamentoData.servicoId);
+
+    if (error) throw error;
+
+    alert('Diagnóstico salvo!');
+    fetchDadosReais();
+
+  } catch (err) {
+    console.error(err);
+    alert('Erro ao salvar diagnóstico');
+  }
+};
+
+
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
@@ -48,6 +116,15 @@ const faturamentoSemanal = useMemo(() => {
   const [statusCadastro, setStatusCadastro] = useState('');
 
   const [clientes, setClientes] = useState([]);
+
+  const clientesOptions = useMemo(() =>
+  clientes.map(c => ({
+    value: c.id,
+    label: c.nome_completo || c.nome || c.email || c.cliente?.email || `ID: ${c.id.substring(0,5)}`
+  })),
+  [clientes]);
+
+
   const [novoCliente, setNovoCliente] = useState({ nome: '', cpf_cnpj: '', email: '', telefone: '', endereco: '' });
   const [statusCliente, setStatusCliente] = useState('');
 
@@ -67,6 +144,10 @@ const faturamentoSemanal = useMemo(() => {
     if (abaAtiva === 'tecnicos') fetchTecnicos();
     if (abaAtiva === 'clientes') fetchClientes();
   }, [abaAtiva]);
+
+  useEffect(() => {
+  fetchClientes();
+}, []);
 
   async function checkAdmin() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -155,28 +236,45 @@ const faturamentoSemanal = useMemo(() => {
   }
 
   const abrirModalNovo = () => {
-    setServicoEditando({ equipamento: '', cliente: '', cpf_cnpj: '', endereco: '', status: 'Em Análise', preço: 0, custo_pecas: 0, telefone: '' });
+    setServicoEditando({ equipamento: '', cliente: '', cliente_id: '', cpf_cnpj: '', endereco: '', status: 'Em Análise', preço: 0, custo_pecas: 0, telefone: '' });
     setModalAberto(true);
   };
 
   async function salvarServico(e) {
-    e.preventDefault();
+  e.preventDefault();
 
-    const payload = {
-      ...servicoEditando,
-      preço: Number(servicoEditando.preço),
-      custo_pecas: Number(servicoEditando.custo_pecas)
-    };
+  const payload = {
+  ...servicoEditando,
+  cliente_id: Number(servicoEditando.cliente_id),
+  preço: Number(servicoEditando.preço),
+  custo_pecas: Number(servicoEditando.custo_pecas)
+};
+
+  try {
+    let error;
 
     if (servicoEditando.id) {
-      await supabase.from('servicos_tecnico').update(payload).eq('id', servicoEditando.id);
+      ({ error } = await supabase
+        .from('servicos_tecnico')
+        .update(payload)
+        .eq('id', servicoEditando.id));
     } else {
-      await supabase.from('servicos_tecnico').insert([payload]);
+      ({ error } = await supabase
+        .from('servicos_tecnico')
+        .insert([payload]));
     }
 
+    if (error) throw error;
+
+    alert('✅ Serviço salvo!');
     setModalAberto(false);
     fetchDadosReais();
+
+  } catch (err) {
+    console.error('ERRO AO SALVAR:', err);
+    alert('❌ Erro: ' + err.message);
   }
+}
 
   async function excluirServico(id) {
     if (confirm('Excluir serviço?')) {
@@ -223,6 +321,7 @@ const faturamentoSemanal = useMemo(() => {
             { id: 'orcamentos', label: 'Gerar Orçamento', icon: '📝', color: 'blue' },
             { id: 'tecnicos', label: 'Gestão de Técnicos', icon: '👥', color: 'indigo' },
             { id: 'relatorios', label: 'Relatórios Técnicos', icon: '📋' },
+            { id: 'laudo', label: 'Laudo Técnico', icon: '📄', color: 'blue' },
             { id: 'finalizados', label: 'Finalizados', icon: '✅', color: 'green' }
           ].map((item) => (
             <button key={item.id} onClick={() => setAbaAtiva(item.id)} className={`w-full text-left px-4 py-4 rounded-2xl font-bold transition-all flex items-center gap-3 ${abaAtiva === item.id ? (item.color === 'indigo' ? 'bg-indigo-600 shadow-lg shadow-indigo-900/20' : item.color === 'green' ? 'bg-green-600' : 'bg-blue-600 shadow-lg shadow-blue-900/20') : 'hover:bg-slate-800 text-slate-400'}`}>
@@ -693,7 +792,7 @@ const faturamentoSemanal = useMemo(() => {
                 <td className="p-6">
                   <div className="flex justify-center items-center gap-3">
                     {/* EDITAR */}
-                    <button onClick={() => abrirModalEditar(s)} className="p-2 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white rounded-lg transition-all" title="Editar">
+                    <button onClick={() => editarServico(s)} className="p-2 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white rounded-lg transition-all" title="Editar">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                       </svg>
@@ -727,46 +826,175 @@ const faturamentoSemanal = useMemo(() => {
       <h3 className="text-3xl font-black text-white mb-8 tracking-tighter italic uppercase">
         {servicoEditando?.id ? 'Atualizar Registro' : 'Novo Registro de Entrada'}
       </h3>
+
       <form onSubmit={salvarServico} className="space-y-6 text-left">
+        
+        {/* LINHA 1 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <div>
+    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+      Equipamento
+    </label>
+    <input
+      className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600"
+      value={servicoEditando.equipamento || ''}
+      onChange={e =>
+        setServicoEditando({ ...servicoEditando, equipamento: e.target.value })
+      }
+      required
+    />
+  </div>
+
+  <div>
+    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+      Cliente
+    </label>
+
+    <Select
+  options={clientesOptions}
+  placeholder="Buscar cliente..."
+  noOptionsMessage={() => "Nenhum cliente encontrado"} // Mensagem caso não ache nada
+  value={
+    clientesOptions.find(opt => opt.value === servicoEditando.cliente_id) || null
+  }
+  onChange={(selected) =>
+    setServicoEditando({
+      ...servicoEditando,
+      cliente_id: selected?.value || '' // Removi o Number() por segurança
+    })
+  }
+  styles={{
+    control: (base) => ({
+      ...base,
+      backgroundColor: '#0f172a', // Cor igual ao seu painel
+      borderColor: '#1e293b',
+      padding: '4px',
+      boxShadow: 'none',
+      '&:hover': { borderColor: '#3b82f6' }
+    }),
+    menu: (base) => ({
+      ...base,
+      backgroundColor: '#0f172a',
+      border: '1px solid #1e293b',
+      zIndex: 9999 // Para o menu flutuar sobre tudo
+    }),
+    option: (base, state) => ({
+      ...base,
+      backgroundColor: state.isSelected
+        ? '#2563eb'
+        : state.isFocused
+        ? '#1e293b'
+        : 'transparent',
+      color: 'white',
+      padding: '12px',
+      '&:active': { backgroundColor: '#2563eb' }
+    }),
+    singleValue: (base) => ({
+      ...base,
+      color: 'white' // Texto do cliente selecionado
+    }),
+    input: (base) => ({
+      ...base,
+      color: 'white' // Texto de quando você está digitando
+    }),
+    placeholder: (base) => ({
+      ...base,
+      color: '#64748b'
+    })
+  }}
+/>
+</div> {/* ✅ FECHA A DIV DO CLIENTE */}
+</div> {/* ✅ fecha a GRID da LINHA 1 */}
+
+{/* LINHA 2 */}
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Equipamento</label>
-            <input className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600" value={servicoEditando.equipamento || ''} onChange={e => setServicoEditando({...servicoEditando, equipamento: e.target.value})} required />
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+              CPF / CNPJ
+            </label>
+            <input
+              className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600"
+              value={servicoEditando.cpf_cnpj || ''}
+              onChange={e =>
+                setServicoEditando({ ...servicoEditando, cpf_cnpj: e.target.value })
+              }
+              required
+            />
           </div>
+
           <div>
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Cliente</label>
-            <input className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600" value={servicoEditando.cliente || ''} onChange={e => setServicoEditando({...servicoEditando, cliente: e.target.value})} />
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+              Endereço Completo
+            </label>
+            <input
+              className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600"
+              value={servicoEditando.endereco || ''}
+              onChange={e =>
+                setServicoEditando({ ...servicoEditando, endereco: e.target.value })
+              }
+              required
+            />
           </div>
         </div>
-        {/* Adicionei o valor padrão '' nos inputs para evitar erro de uncontrolled component */}
+
+        {/* LINHA 3 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">CPF / CNPJ</label>
-            <input className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600" value={servicoEditando.cpf_cnpj || ''} onChange={e => setServicoEditando({...servicoEditando, cpf_cnpj: e.target.value})} required />
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+              Preço Final (R$)
+            </label>
+            <input
+              type="number"
+              className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600"
+              value={servicoEditando.preço || ''}
+              onChange={e =>
+                setServicoEditando({ ...servicoEditando, preço: e.target.value })
+              }
+            />
           </div>
+
           <div>
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Endereço Completo</label>
-            <input className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600" value={servicoEditando.endereco || ''} onChange={e => setServicoEditando({...servicoEditando, endereco: e.target.value})} required />
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+              Custo de Peças (R$)
+            </label>
+            <input
+              type="number"
+              className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600"
+              value={servicoEditando.custo_pecas || ''}
+              onChange={e =>
+                setServicoEditando({ ...servicoEditando, custo_pecas: e.target.value })
+              }
+            />
           </div>
         </div>
+
+        {/* LINHA 4 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Preço Final (R$)</label>
-            <input type="number" className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600" value={servicoEditando.preço || ''} onChange={e => setServicoEditando({...servicoEditando, preço: e.target.value})} />
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+              Telefone do Cliente
+            </label>
+            <input
+              className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600"
+              value={servicoEditando.telefone || ''}
+              onChange={e =>
+                setServicoEditando({ ...servicoEditando, telefone: e.target.value })
+              }
+              required
+            />
           </div>
+
           <div>
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Custo de Peças (R$)</label>
-            <input type="number" className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600" value={servicoEditando.custo_pecas || ''} onChange={e => setServicoEditando({...servicoEditando, custo_pecas: e.target.value})} />
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Telefone do Cliente</label>
-            <input className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600" value={servicoEditando.telefone || ''} onChange={e => setServicoEditando({...servicoEditando, telefone: e.target.value})} required />
-          </div>
-          <div>
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Status Atual</label>
-            <select className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600" value={servicoEditando.status} onChange={e => setServicoEditando({...servicoEditando, status: e.target.value})}>
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+              Status Atual
+            </label>
+            <select
+              className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600"
+              value={servicoEditando.status}
+              onChange={e =>
+                setServicoEditando({ ...servicoEditando, status: e.target.value })
+              }
+            >
               <option value="Em Análise">Em Análise</option>
               <option value="Aguardando Aprovação">Aguardando Aprovação</option>
               <option value="Em Manutenção">Em Manutenção</option>
@@ -775,10 +1003,25 @@ const faturamentoSemanal = useMemo(() => {
             </select>
           </div>
         </div>
+
+        {/* BOTÕES */}
         <div className="flex gap-4 pt-6">
-          <button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest text-xs transition-all">Confirmar e Salvar</button>
-          <button type="button" onClick={() => setModalAberto(false)} className="px-8 bg-slate-800 hover:bg-slate-700 text-slate-400 font-black py-5 rounded-2xl uppercase tracking-widest text-xs transition-all">Cancelar</button>
+          <button
+            type="submit"
+            className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest text-xs transition-all"
+          >
+            Confirmar e Salvar
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setModalAberto(false)}
+            className="px-8 bg-slate-800 hover:bg-slate-700 text-slate-400 font-black py-5 rounded-2xl uppercase tracking-widest text-xs transition-all"
+          >
+            Cancelar
+          </button>
         </div>
+
       </form>
     </div>
   </div>
