@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import Select from 'react-select';
 import { supabase } from '../../public/lib/supabase';
 
 export default function PainelTecnicoEntrada() {
@@ -18,22 +19,42 @@ export default function PainelTecnicoEntrada() {
   const [arquivosFotos, setArquivosFotos] = useState([]); 
   const [aceiteCliente, setAceiteCliente] = useState(false);
 
-  useEffect(() => {
-    async function carregarClientes() {
-      const { data, error } = await supabase
-        .from('perfis')
-        .select('id, nome_completo, email, tipo_perfil') 
-        .eq('tipo_perfil', 'cliente') 
-        .order('nome_completo', { ascending: true }); 
-      
-      if (error) {
-        console.error("Erro ao buscar perfis:", error.message);
-      } else {
-        setClientes(data || []);
+  async function carregarClientes() {
+  const { data, error } = await supabase
+    .from('perfis')
+    .select('id, nome_completo, email, tipo_perfil')
+    .eq('tipo_perfil', 'cliente')
+    .order('nome_completo', { ascending: true });
+
+  if (error) {
+    console.error('Erro ao buscar perfis:', error.message);
+  } else {
+    setClientes(data || []);
+  }
+}
+
+useEffect(() => {
+  carregarClientes();
+
+  const channel = supabase
+    .channel('clientes-update')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'perfis',
+      },
+      () => {
+        carregarClientes();
       }
-    }
-    carregarClientes();
-  }, []);
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, []);
 
   const handleSelecionarCliente = async (valorClienteId) => {
     setClienteSelecionado(valorClienteId);
@@ -210,18 +231,83 @@ export default function PainelTecnicoEntrada() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="text-xs text-slate-500 uppercase font-bold">Cliente *</label>
-                <select 
-                  className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 mt-1 text-white outline-none focus:ring-2 focus:ring-blue-500"
-                  value={clienteSelecionado} 
-                  onChange={(e) => handleSelecionarCliente(e.target.value)}
-                >
-                  <option value="">Selecione o cliente...</option>
-                  {clientes.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.nome_completo || c.email}
-                    </option>
-                  ))}
-                </select>
+                <Select
+  placeholder="Selecione o cliente..."
+  options={clientes.map(c => ({
+    value: c.id,
+    label: c.nome_completo || c.email
+  }))}
+  value={
+    clientes
+      .map(c => ({
+        value: c.id,
+        label: c.nome_completo || c.email
+      }))
+      .find(opt => opt.value === clienteSelecionado) || null
+  }
+  onChange={(selected) =>
+    handleSelecionarCliente(selected?.value || '')
+  }
+  styles={{
+    control: (base, state) => ({
+      ...base,
+      backgroundColor: '#0f172a',
+      borderColor: state.isFocused ? '#3b82f6' : '#334155',
+      borderWidth: '1px',
+      borderRadius: '10px',
+      minHeight: '48px',
+      boxShadow: 'none',
+      color: 'white',
+
+      '&:hover': {
+        borderColor: '#3b82f6',
+      },
+    }),
+
+    menu: (base) => ({
+      ...base,
+      backgroundColor: '#08142b',
+      border: '1px solid #334155',
+      overflow: 'hidden',
+      borderRadius: '10px',
+      marginTop: '4px',
+    }),
+
+    option: (base, state) => ({
+      ...base,
+      backgroundColor: state.isFocused
+        ? '#2563eb'
+        : '#08142b',
+      color: 'white',
+      cursor: 'pointer',
+      padding: '12px',
+    }),
+
+    singleValue: (base) => ({
+      ...base,
+      color: 'white',
+    }),
+
+    input: (base) => ({
+      ...base,
+      color: 'white',
+    }),
+
+    placeholder: (base) => ({
+      ...base,
+      color: '#94a3b8',
+    }),
+
+    dropdownIndicator: (base) => ({
+      ...base,
+      color: '#94a3b8',
+    }),
+
+    indicatorSeparator: () => ({
+      display: 'none',
+    }),
+  }}
+/>
               </div>
               <div>
                 <label className="text-xs text-slate-500 uppercase font-bold">Aparelho / Modelo *</label>
