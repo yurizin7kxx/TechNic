@@ -21,13 +21,12 @@ export default function PainelTecnicoEntrada() {
 
   async function carregarClientes() {
   const { data, error } = await supabase
-    .from('perfis')
-    .select('id, nome_completo, email, tipo_perfil')
-    .eq('tipo_perfil', 'cliente')
-    .order('nome_completo', { ascending: true });
+    .from('clientes')
+    .select('id, nome , email')
+    .order('nome' , { ascending: true });
 
   if (error) {
-    console.error('Erro ao buscar perfis:', error.message);
+    console.error('Erro ao buscar clientes:', error.message);
   } else {
     setClientes(data || []);
   }
@@ -233,21 +232,25 @@ useEffect(() => {
                 <label className="text-xs text-slate-500 uppercase font-bold">Cliente *</label>
                 <Select
   placeholder="Selecione o cliente..."
+  
   options={clientes.map(c => ({
     value: c.id,
-    label: c.nome_completo || c.email
+    label: `${c.nome} || ${c.email}`
   }))}
+
   value={
     clientes
       .map(c => ({
         value: c.id,
-        label: c.nome_completo || c.email
+        label: `${c.nome} || ${c.email}`
       }))
       .find(opt => opt.value === clienteSelecionado) || null
   }
+
   onChange={(selected) =>
     handleSelecionarCliente(selected?.value || '')
   }
+
   styles={{
     control: (base, state) => ({
       ...base,

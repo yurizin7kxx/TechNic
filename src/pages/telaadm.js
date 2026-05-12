@@ -78,6 +78,8 @@ const salvarDiagnostico = async () => {
 
   const router = useRouter();
 
+  const [pesquisaCliente, setPesquisaCliente] = useState('');
+
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState(null);
 
@@ -200,23 +202,44 @@ const faturamentoSemanal = useMemo(() => {
   }
 
   async function cadastrarCliente(e) {
-    e.preventDefault();
-    setStatusCliente('⏳ Salvando...');
+  e.preventDefault();
+  setStatusCliente('⏳ Salvando...');
 
-    try {
-      if (novoCliente.id) {
-        await supabase.from('clientes').update(novoCliente).eq('id', novoCliente.id);
-      } else {
-        await supabase.from('clientes').insert([novoCliente]);
-      }
+  try {
+    if (novoCliente.id) {
+      await supabase
+        .from('clientes')
+        .update(novoCliente)
+        .eq('id', novoCliente.id);
 
-      setStatusCliente('✅ Sucesso!');
-      setNovoCliente({ nome: '', cpf_cnpj: '', email: '', telefone: '', endereco: '' });
-      fetchClientes();
-    } catch (error) {
-      setStatusCliente('❌ ' + error.message);
+      setStatusCliente('✅ Cliente atualizado!');
+    } else {
+      await supabase
+        .from('clientes')
+        .insert([novoCliente]);
+
+      setStatusCliente('✅ Cliente cadastrado!');
     }
+
+    // limpa formulário
+    setNovoCliente({
+      nome: '',
+      cpf_cnpj: '',
+      email: '',
+      telefone: '',
+      endereco: ''
+    });
+
+    // atualiza lista
+    await fetchClientes();
+
+    // muda automaticamente pra aba
+    setAbaAtiva('clientesall');
+
+  } catch (error) {
+    setStatusCliente('❌ ' + error.message);
   }
+}
 
   async function deletarCliente(id) {
     if (confirm('Excluir cliente?')) {
@@ -320,8 +343,10 @@ const faturamentoSemanal = useMemo(() => {
             { id: 'geral', label: 'Visão Geral', icon: '📊' },
             { id: 'servicos', label: 'Todos os Serviços', icon: '🛠️' },
             { id: 'clientes', label: 'Gestão de Clientes', icon: '👤', color: 'blue' }, // NOVO BOTÃO
+            { id: 'clientesall', label: 'Base de Clientes', icon: '📁', color: 'blue' },
             { id: 'orcamentos', label: 'Gerar Orçamento', icon: '📝', color: 'blue' },
             { id: 'tecnicos', label: 'Gestão de Técnicos', icon: '👥', color: 'indigo' },
+            { id: 'tecnicosall', label: 'Todos os Técnicos', icon: '🧑‍🔧', color: 'indigo' },
             { id: 'relatorios', label: 'Relatórios Técnicos', icon: '📋' },
             { id: 'finalizados', label: 'Finalizados', icon: '✅', color: 'green' }
           ].map((item) => (
@@ -337,7 +362,19 @@ const faturamentoSemanal = useMemo(() => {
 
       <main className="flex-1 overflow-y-auto">
         <header className="bg-slate-950/80 backdrop-blur-md sticky top-0 z-10 p-6 border-b border-slate-900 flex justify-between items-center">
-          <h2 className="text-sm font-black uppercase tracking-widest text-slate-500">Dashboard / {abaAtiva}</h2>
+          <h2 className="text-sm font-black uppercase tracking-widest text-slate-500">
+  Dashboard / {({
+    geral: 'Visão Geral',
+    servicos: 'Todos os Serviços',
+    clientes: 'Gestão de Clientes',
+    clientesall: 'Todos os Clientes',
+    orcamentos: 'Gerar Orçamento',
+    tecnicos: 'Gestão de Técnicos',
+    tecnicosall: 'Todos os Técnicos',
+    relatorios: 'Relatórios Técnicos',
+    finalizados: 'Finalizados'
+  })[abaAtiva]}
+</h2>
           <div className="flex items-center gap-3 bg-slate-900 px-4 py-2 rounded-full border border-slate-800">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
             <span className="text-xs font-bold text-slate-300 italic">{userProfile?.nome_completo}</span>
@@ -392,118 +429,306 @@ const faturamentoSemanal = useMemo(() => {
           {/* --- NOVA ABA: GESTÃO DE CLIENTES --- */}
 {abaAtiva === 'clientes' && (
   <div className="space-y-10">
+
+    {/* FORMULÁRIO */}
     <div className="max-w-3xl mx-auto bg-slate-900 p-10 rounded-3xl border border-slate-800 shadow-2xl">
       <h3 className="text-3xl font-black text-white tracking-tighter italic mb-8 uppercase">
         {novoCliente.id ? 'Editar Cliente' : 'Novo Cliente'}
       </h3>
       
       <form onSubmit={cadastrarCliente} className="space-y-6">
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Nome Completo</label>
-            <input type="text" className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold" value={novoCliente.nome} onChange={(e) => setNovoCliente({...novoCliente, nome: e.target.value})} required />
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+              Nome Completo
+            </label>
+
+            <input
+              type="text"
+              className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold"
+              value={novoCliente.nome}
+              onChange={(e) =>
+                setNovoCliente({
+                  ...novoCliente,
+                  nome: e.target.value
+                })
+              }
+              required
+            />
           </div>
+
           <div>
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">CPF / CNPJ</label>
-            <input type="text" className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold" value={novoCliente.cpf_cnpj} onChange={(e) => setNovoCliente({...novoCliente, cpf_cnpj: e.target.value})} required />
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+              CPF / CNPJ
+            </label>
+
+            <input
+              type="text"
+              className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold"
+              value={novoCliente.cpf_cnpj}
+              onChange={(e) =>
+                setNovoCliente({
+                  ...novoCliente,
+                  cpf_cnpj: e.target.value
+                })
+              }
+              required
+            />
           </div>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
           <div>
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">E-mail</label>
-            <input type="email" className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold" value={novoCliente.email} onChange={(e) => setNovoCliente({...novoCliente, email: e.target.value})} />
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+              E-mail
+            </label>
+
+            <input
+              type="email"
+              className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold"
+              value={novoCliente.email}
+              onChange={(e) =>
+                setNovoCliente({
+                  ...novoCliente,
+                  email: e.target.value
+                })
+              }
+            />
           </div>
+
           <div>
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Telefone</label>
-            <input type="text" className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold" value={novoCliente.telefone} onChange={(e) => setNovoCliente({...novoCliente, telefone: e.target.value})} required />
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+              Telefone
+            </label>
+
+            <input
+              type="text"
+              className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold"
+              value={novoCliente.telefone}
+              onChange={(e) =>
+                setNovoCliente({
+                  ...novoCliente,
+                  telefone: e.target.value
+                })
+              }
+              required
+            />
           </div>
+
         </div>
 
         <div>
-          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Endereço Completo</label>
-          <input type="text" className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold" value={novoCliente.endereco} onChange={(e) => setNovoCliente({...novoCliente, endereco: e.target.value})} required />
+          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+            Endereço Completo
+          </label>
+
+          <input
+            type="text"
+            className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold"
+            value={novoCliente.endereco}
+            onChange={(e) =>
+              setNovoCliente({
+                ...novoCliente,
+                endereco: e.target.value
+              })
+            }
+            required
+          />
         </div>
 
         <div className="flex gap-4">
-          <button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest text-xs transition-all">
+
+          <button
+            type="submit"
+            className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest text-xs transition-all"
+          >
             {novoCliente.id ? 'Atualizar Cliente' : 'Salvar Cliente'}
           </button>
-          
+
           {novoCliente.id && (
-            <button 
-              type="button" 
-              onClick={() => setNovoCliente({ nome: '', cpf_cnpj: '', email: '', telefone: '', endereco: '' })}
+            <button
+              type="button"
+              onClick={() =>
+                setNovoCliente({
+                  nome: '',
+                  cpf_cnpj: '',
+                  email: '',
+                  telefone: '',
+                  endereco: ''
+                })
+              }
               className="px-8 bg-slate-800 hover:bg-slate-700 text-slate-400 font-black rounded-2xl uppercase text-[10px] transition-all"
             >
               Cancelar
             </button>
           )}
+
         </div>
+
       </form>
 
-      {statusCliente && <div className={`mt-8 p-4 rounded-2xl text-center text-xs font-black uppercase ${statusCliente.includes('✅') ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>{statusCliente}</div>}
+      {statusCliente && (
+        <div
+          className={`mt-8 p-4 rounded-2xl text-center text-xs font-black uppercase ${
+            statusCliente.includes('✅')
+              ? 'bg-green-500/10 text-green-500'
+              : 'bg-red-500/10 text-red-500'
+          }`}
+        >
+          {statusCliente}
+        </div>
+      )}
+
+    </div>
+  </div>
+)}
+
+
+{/* --- ABA TODOS OS CLIENTES --- */}
+{abaAtiva === 'clientesall' && (
+  <div className="space-y-6">
+
+    <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+
+      <h3 className="text-3xl font-black italic tracking-tighter text-white uppercase">
+        Todos os Clientes
+      </h3>
+
+      <div className="flex items-center gap-4">
+
+        {/* PESQUISA */}
+        <input
+          type="text"
+          placeholder="Pesquisar cliente..."
+          value={pesquisaCliente || ''}
+          onChange={(e) => setPesquisaCliente(e.target.value)}
+          className="bg-slate-900 border-2 border-slate-800 px-5 py-3 rounded-2xl text-white outline-none focus:border-blue-600 font-bold w-72"
+        />
+
+        {/* TOTAL */}
+        <span className="bg-blue-600 text-white px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest whitespace-nowrap">
+          {clientes.filter((c) =>
+            c.nome?.toLowerCase().includes((pesquisaCliente || '').toLowerCase())
+          ).length} clientes
+        </span>
+
+      </div>
     </div>
 
     <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl">
-      <div className="p-6 border-b border-slate-800 flex justify-between items-center">
-        <h3 className="font-black text-xl italic text-slate-200 uppercase">Base de Clientes</h3>
-        <span className="text-[10px] font-black bg-slate-800 px-3 py-1 rounded-full text-slate-500 uppercase">{clientes.length} Cadastrados</span>
-      </div>
-      
+
       <div className="overflow-x-auto">
         <table className="w-full text-left">
-          <thead className="bg-slate-800/50 text-slate-500 text-[10px] font-black uppercase">
+
+          <thead className="bg-slate-800/50 text-slate-500 text-[10px] font-black uppercase tracking-widest">
             <tr>
-              <th className="p-6">Nome</th>
-              <th className="p-6">Documento</th>
-              <th className="p-6">Contato</th>
+              <th className="p-6">Cliente</th>
+              <th className="p-6">CPF / CNPJ</th>
+              <th className="p-6">Telefone</th>
+              <th className="p-6">E-mail</th>
               <th className="p-6 text-center">Ações</th>
             </tr>
           </thead>
+
           <tbody className="divide-y divide-slate-800">
-            {clientes.map(c => (
-              <tr key={c.id} className="hover:bg-slate-800/30 transition-all font-bold">
+            {clientes
+              .filter((c) =>
+                c.nome?.toLowerCase().includes((pesquisaCliente || '').toLowerCase())
+              )
+              .map((c) => (
+              <tr
+                key={c.id}
+                className="hover:bg-slate-800/30 transition-all font-bold"
+              >
                 <td className="p-6">
-                  <div className="text-slate-200">{c.nome}</div>
-                  <div className="text-[10px] text-slate-500 uppercase font-normal">{c.endereco}</div>
+                  <div className="text-slate-200">
+                    {c.nome}
+                  </div>
+
+                  <div className="text-[10px] text-slate-500 uppercase font-normal">
+                    {c.endereco}
+                  </div>
                 </td>
-                <td className="p-6 text-sm text-slate-400 font-mono">{c.cpf_cnpj}</td>
-                <td className="p-6 text-sm text-slate-400">{c.telefone}</td>
+
+                <td className="p-6 text-slate-400 font-mono">
+                  {c.cpf_cnpj}
+                </td>
+
+                <td className="p-6 text-slate-400">
+                  {c.telefone}
+                </td>
+
+                <td className="p-6 text-slate-400">
+                  {c.email || '---'}
+                </td>
+
                 <td className="p-6">
                   <div className="flex justify-center gap-3">
-                    {/* BOTÃO EDITAR */}
-                    <button 
+
+                    {/* EDITAR */}
+                    <button
                       onClick={() => {
                         setNovoCliente(c);
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        setAbaAtiva('clientes');
+
+                        window.scrollTo({
+                          top: 0,
+                          behavior: 'smooth'
+                        });
                       }}
-                      className="p-2 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white rounded-xl transition-all"
+                      className="p-3 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white rounded-2xl transition-all"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                        />
                       </svg>
                     </button>
 
-                    {/* BOTÃO EXCLUIR */}
-                    <button 
+                    {/* EXCLUIR */}
+                    <button
                       onClick={() => deletarCliente(c.id)}
-                      className="p-2 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white rounded-xl transition-all"
+                      className="p-3 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white rounded-2xl transition-all"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
                       </svg>
                     </button>
+
                   </div>
                 </td>
               </tr>
             ))}
           </tbody>
+
         </table>
       </div>
     </div>
   </div>
 )}
+
           {abaAtiva === 'orcamentos' && (
             <div className="max-w-4xl mx-auto space-y-8">
               <div className="bg-slate-900 p-10 rounded-3xl border border-slate-800 shadow-2xl">
@@ -661,6 +886,117 @@ const faturamentoSemanal = useMemo(() => {
           ))}
         </tbody>
       </table>
+    </div>
+  </div>
+)}
+
+{/* --- ABA TODOS OS TÉCNICOS --- */}
+{abaAtiva === 'tecnicosall' && (
+  <div className="space-y-6">
+
+    <div className="flex justify-between items-center">
+      <h3 className="text-3xl font-black italic tracking-tighter text-white uppercase">
+        Todos os Técnicos
+      </h3>
+
+      <span className="bg-indigo-600 text-white px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest">
+        {tecnicos.length} técnicos
+      </span>
+    </div>
+
+    <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl">
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-left">
+
+          <thead className="bg-slate-800/50 text-slate-500 text-[10px] font-black uppercase tracking-widest">
+            <tr>
+              <th className="p-6">Nome</th>
+              <th className="p-6">E-mail</th>
+              <th className="p-6 text-center">Ações</th>
+            </tr>
+          </thead>
+
+          <tbody className="divide-y divide-slate-800">
+            {tecnicos.map((t) => (
+              <tr
+                key={t.id}
+                className="hover:bg-slate-800/30 transition-all font-bold"
+              >
+                <td className="p-6 text-slate-200">
+                  {t.nome_completo || t.nome}
+                </td>
+
+                <td className="p-6 text-slate-400">
+                  {t.email}
+                </td>
+
+                <td className="p-6">
+                  <div className="flex justify-center gap-3">
+
+                    {/* EDITAR */}
+                    <button
+                      onClick={() => {
+                        setNovoTecnico({
+                          ...t,
+                          nome: t.nome_completo || t.nome,
+                          senha: ''
+                        });
+
+                        setAbaAtiva('tecnicos');
+
+                        window.scrollTo({
+                          top: 0,
+                          behavior: 'smooth'
+                        });
+                      }}
+                      className="p-3 bg-indigo-600/10 hover:bg-indigo-600 text-indigo-500 hover:text-white rounded-2xl transition-all"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                        />
+                      </svg>
+                    </button>
+
+                    {/* EXCLUIR */}
+                    <button
+                      onClick={() => excluirTecnico(t.id)}
+                      className="p-3 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white rounded-2xl transition-all"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    </button>
+
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+
+        </table>
+      </div>
     </div>
   </div>
 )}
