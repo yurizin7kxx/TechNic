@@ -48,6 +48,7 @@ export default function RegisterPage() {
               email: formData.email,
               telefone: formData.telefone,
               tipo_perfil: formData.perfil, // Grava exatamente o que foi selecionado no select
+              senha: formData.senha,
             },
           ]);
 
@@ -107,9 +108,10 @@ export default function RegisterPage() {
               required
               name="senha"
               type="password"
+              minLength={6}
               value={formData.senha}
               onChange={handleChange}
-              placeholder="••••••••"
+              placeholder="Mínimo 6 caracteres"
               className="w-full px-4 py-2 rounded-md bg-slate-700 border border-slate-600 text-white focus:ring-2 focus:ring-blue-500 outline-none"
             />
           </div>

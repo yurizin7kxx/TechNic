@@ -8,48 +8,76 @@ import { supabase } from '../../public/lib/supabase';
 
 export default function AdminDashboard() {
 
-  
+  const [pesquisaTecnico, setPesquisaTecnico] = useState('');
 
   const cadastrarTecnico = async (e) => {
   e.preventDefault();
+
   setStatusCadastro('⏳ Salvando...');
 
   try {
+
+    let error;
+
     if (novoTecnico.id) {
-      const { error } = await supabase
+
+      ({ error } = await supabase
         .from('perfis')
         .update({
           nome_completo: novoTecnico.nome,
           email: novoTecnico.email,
+          telefone: novoTecnico.telefone
         })
-        .eq('id', novoTecnico.id);
+        .eq('id', novoTecnico.id));
 
-      if (error) throw error;
-
-      setStatusCadastro('✅ Técnico atualizado!');
     } else {
-      const { error } = await supabase
+
+      // CRIA USUÁRIO NO AUTH
+      const { data: authData, error: authError } =
+        await supabase.auth.signUp({
+          email: novoTecnico.email,
+          password: novoTecnico.senha
+        });
+
+      if (authError) throw authError;
+
+      // PEGA ID DO AUTH
+      const userId = authData.user.id;
+
+      // INSERE NO PERFIS
+      ({ error } = await supabase
         .from('perfis')
         .insert([
           {
+            id: userId,
             nome_completo: novoTecnico.nome,
             email: novoTecnico.email,
-            senha: novoTecnico.senha,
+            telefone: novoTecnico.telefone,
             tipo_perfil: 'tecnico'
           }
-        ]);
-
-      if (error) throw error;
-
-      setStatusCadastro('✅ Técnico cadastrado!');
+        ]));
     }
 
-    setNovoTecnico({ nome: '', email: '', senha: '' });
+    if (error) throw error;
+
+    setStatusCadastro(
+      novoTecnico.id
+        ? '✅ Técnico atualizado!'
+        : '✅ Técnico cadastrado!'
+    );
+
+    setNovoTecnico({
+      nome: '',
+      email: '',
+      telefone: '',
+      senha: ''
+    });
+
     fetchTecnicos();
 
   } catch (err) {
     console.error(err);
-    setStatusCadastro('❌ Erro ao salvar técnico');
+    setStatusCadastro('❌ ' + err.message);
   }
 };
 
@@ -60,7 +88,7 @@ const salvarDiagnostico = async () => {
       .update({
         diagnostico: orcamentoData.diagnostico,
         prazo: orcamentoData.prazo,
-        preço: Number(orcamentoData.valorTotal)
+        preco: Number(orcamentoData.valorTotal)
       })
       .eq('id', orcamentoData.servicoId);
 
@@ -87,7 +115,7 @@ const salvarDiagnostico = async () => {
 
 const faturamentoTotal = useMemo(() => {
   return (servicos || []).reduce(
-    (acc, s) => acc + (Number(s.preço) || 0),
+    (acc, s) => acc + (Number(s.preco) || 0),
     0
   );
 }, [servicos]);
@@ -110,13 +138,18 @@ const faturamentoSemanal = useMemo(() => {
       const diff = (hoje - data) / (1000 * 60 * 60 * 24);
       return diff <= 7;
     })
-    .reduce((acc, s) => acc + (Number(s.preço) || 0), 0);
+    .reduce((acc, s) => acc + (Number(s.preco) || 0), 0);
 }, [servicos]);
   
   const [abaAtiva, setAbaAtiva] = useState('geral');
 
   const [tecnicos, setTecnicos] = useState([]);
-  const [novoTecnico, setNovoTecnico] = useState({ nome: '', email: '', senha: '' });
+  const [novoTecnico, setNovoTecnico] = useState({
+  nome: '',
+  email: '',
+  telefone: '',
+  senha: ''
+});
   const [statusCadastro, setStatusCadastro] = useState('');
 
   const [clientes, setClientes] = useState([]);
@@ -145,13 +178,20 @@ const faturamentoSemanal = useMemo(() => {
   useEffect(() => { checkAdmin(); }, []);
 
   useEffect(() => {
-    if (abaAtiva === 'tecnicos') fetchTecnicos();
-    if (abaAtiva === 'clientes') fetchClientes();
-  }, [abaAtiva]);
-
-  useEffect(() => {
-  fetchClientes();
+  carregarDadosIniciais();
 }, []);
+
+async function carregarDadosIniciais() {
+  try {
+    await Promise.all([
+      fetchClientes(),
+      fetchTecnicos(),
+      fetchDadosReais()
+    ]);
+  } catch (err) {
+    console.error(err);
+  }
+}
 
   async function checkAdmin() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -170,7 +210,6 @@ const faturamentoSemanal = useMemo(() => {
     }
 
     setUserProfile(profile);
-    await fetchDadosReais();
     setLoading(false);
   }
 
@@ -261,7 +300,7 @@ const faturamentoSemanal = useMemo(() => {
   }
 
   const abrirModalNovo = () => {
-    setServicoEditando({ equipamento: '', cliente: '', cliente_id: '', cpf_cnpj: '', endereco: '', status: 'Em Análise', preço: 0, custo_pecas: 0, telefone: '' });
+    setServicoEditando({ equipamento: '', cliente: '', cliente_id: '', cpf_cnpj: '', endereco: '', status: 'Em Análise', preco: 0, custo_pecas: 0, telefone: '' });
     setModalAberto(true);
   };
 
@@ -271,7 +310,7 @@ const faturamentoSemanal = useMemo(() => {
   const payload = {
   ...servicoEditando,
   cliente_id: Number(servicoEditando.cliente_id),
-  preço: Number(servicoEditando.preço),
+  preco: Number(servicoEditando.preco),
   custo_pecas: Number(servicoEditando.custo_pecas)
 };
 
@@ -329,11 +368,24 @@ const faturamentoSemanal = useMemo(() => {
 
   const conv = (v) => Number(v) || 0;
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-white">CARREGANDO...</div>;
-
-  // 🔥 AQUI ESTÁ SEU LAYOUT ORIGINAL (mantido)
+if (loading) {
   return (
-    <div className="flex min-h-screen bg-slate-950 text-slate-100 font-sans">
+    <div className="min-h-screen flex items-center justify-center text-white">
+      CARREGANDO...
+    </div>
+  );
+}
+
+if (!userProfile) {
+  return (
+    <div className="min-h-screen flex items-center justify-center text-white">
+      CARREGANDO PERFIL...
+    </div>
+  );
+}
+
+return (
+  <div className="flex min-h-screen bg-slate-950 text-slate-100 font-sans">
       <aside className="w-72 bg-slate-900 border-r border-slate-800 flex flex-col">
         <div className="p-8 border-b border-slate-800">
           <h1 className="text-blue-500 font-black text-2xl tracking-tighter italic">TECHNIC ADMIN</h1>
@@ -346,7 +398,7 @@ const faturamentoSemanal = useMemo(() => {
             { id: 'clientesall', label: 'Base de Clientes', icon: '📁', color: 'blue' },
             { id: 'orcamentos', label: 'Gerar Orçamento', icon: '📝', color: 'blue' },
             { id: 'tecnicos', label: 'Gestão de Técnicos', icon: '👥', color: 'indigo' },
-            { id: 'tecnicosall', label: 'Todos os Técnicos', icon: '🧑‍🔧', color: 'indigo' },
+            { id: 'tecnicosall', label: 'Base dos Técnicos', icon: '🧑‍🔧', color: 'indigo' },
             { id: 'relatorios', label: 'Relatórios Técnicos', icon: '📋' },
             { id: 'finalizados', label: 'Finalizados', icon: '✅', color: 'green' }
           ].map((item) => (
@@ -435,10 +487,13 @@ const faturamentoSemanal = useMemo(() => {
       <h3 className="text-3xl font-black text-white tracking-tighter italic mb-8 uppercase">
         {novoCliente.id ? 'Editar Cliente' : 'Novo Cliente'}
       </h3>
-      
+
       <form onSubmit={cadastrarCliente} className="space-y-6">
 
+        {/* LINHA 1 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+          {/* NOME */}
           <div>
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
               Nome Completo
@@ -458,6 +513,7 @@ const faturamentoSemanal = useMemo(() => {
             />
           </div>
 
+          {/* CPF / CNPJ */}
           <div>
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
               CPF / CNPJ
@@ -466,20 +522,39 @@ const faturamentoSemanal = useMemo(() => {
             <input
               type="text"
               className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold"
-              value={novoCliente.cpf_cnpj}
-              onChange={(e) =>
-                setNovoCliente({
-                  ...novoCliente,
-                  cpf_cnpj: e.target.value
-                })
-              }
+              value={novoCliente.cpf_cnpj || ''}
+              onChange={(e) => {
+                let v = e.target.value.replace(/\D/g, '');
+
+                if (v.length <= 11) {
+                  v = v
+                    .replace(/(\d{3})(\d)/, '$1.$2')
+                    .replace(/(\d{3})(\d)/, '$1.$2')
+                    .replace(/(\d{3})(\d{1,2})/, '$1-$2');
+                } else {
+                  v = v
+                    .replace(/^(\d{2})(\d)/, '$1.$2')
+                    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+                    .replace(/\.(\d{3})(\d)/, '.$1/$2')
+                    .replace(/(\d{4})(\d)/, '$1-$2');
+                }
+
+                setNovoCliente((prev) => ({
+                  ...prev,
+                  cpf_cnpj: v
+                }));
+              }}
+              maxLength={18}
               required
             />
           </div>
+
         </div>
 
+        {/* LINHA 2 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
+          {/* EMAIL */}
           <div>
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
               E-mail
@@ -498,6 +573,7 @@ const faturamentoSemanal = useMemo(() => {
             />
           </div>
 
+          {/* TELEFONE */}
           <div>
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
               Telefone
@@ -506,19 +582,26 @@ const faturamentoSemanal = useMemo(() => {
             <input
               type="text"
               className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold"
-              value={novoCliente.telefone}
-              onChange={(e) =>
-                setNovoCliente({
-                  ...novoCliente,
-                  telefone: e.target.value
-                })
-              }
+              value={novoCliente.telefone || ''}
+              onChange={(e) => {
+                let v = e.target.value.replace(/\D/g, '');
+
+                v = v.replace(/^(\d{2})(\d)/g, '($1) $2');
+                v = v.replace(/(\d{5})(\d)/, '$1-$2');
+
+                setNovoCliente((prev) => ({
+                  ...prev,
+                  telefone: v
+                }));
+              }}
+              maxLength={15}
               required
             />
           </div>
 
         </div>
 
+        {/* ENDEREÇO */}
         <div>
           <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
             Endereço Completo
@@ -538,6 +621,7 @@ const faturamentoSemanal = useMemo(() => {
           />
         </div>
 
+        {/* BOTÕES */}
         <div className="flex gap-4">
 
           <button
@@ -559,7 +643,7 @@ const faturamentoSemanal = useMemo(() => {
                   endereco: ''
                 })
               }
-              className="px-8 bg-slate-800 hover:bg-slate-700 text-slate-400 font-black rounded-2xl uppercase text-[10px] transition-all"
+              className="px-8 bg-slate-800 hover:bg-slate-700 text-slate-400 font-black rounded-2xl uppercase text-[10px]"
             >
               Cancelar
             </button>
@@ -569,6 +653,7 @@ const faturamentoSemanal = useMemo(() => {
 
       </form>
 
+      {/* STATUS */}
       {statusCliente && (
         <div
           className={`mt-8 p-4 rounded-2xl text-center text-xs font-black uppercase ${
@@ -741,8 +826,8 @@ const faturamentoSemanal = useMemo(() => {
                       className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold"
                       value={orcamentoData.servicoId}
                       onChange={(e) => {
-                        const s = servicos.find(item => item.id === e.target.value);
-                        setOrcamentoData({...orcamentoData, servicoId: e.target.value, valorTotal: s?.preço || 0});
+                        const s = servicos.find(item => Number(item.id) === Number(e.target.value));
+                        setOrcamentoData({...orcamentoData, servicoId: e.target.value, valorTotal: s?.preco || 0});
                       }}
                     >
                       <option value="">Selecione um equipamento...</option>
@@ -801,91 +886,141 @@ const faturamentoSemanal = useMemo(() => {
       </h3>
       
       <form onSubmit={cadastrarTecnico} className="space-y-6">
-        <div>
-          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Nome</label>
-          <input type="text" className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-indigo-600 font-bold" value={novoTecnico.nome} onChange={(e) => setNovoTecnico({...novoTecnico, nome: e.target.value})} required />
-        </div>
-        <div>
-          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">E-mail</label>
-          <input type="email" className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-indigo-600 font-bold" value={novoTecnico.email} onChange={(e) => setNovoTecnico({...novoTecnico, email: e.target.value})} required />
-        </div>
+
+        {/* NOME */}
         <div>
           <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
-            {novoTecnico.id ? 'Nova Senha (deixe em branco para manter)' : 'Senha'}
+            Nome
           </label>
-          <input type="password" className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-indigo-600 font-bold" value={novoTecnico.senha || ''} onChange={(e) => setNovoTecnico({...novoTecnico, senha: e.target.value})} required={!novoTecnico.id} />
+
+          <input 
+            type="text" 
+            className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-indigo-600 font-bold" 
+            value={novoTecnico.nome} 
+            onChange={(e) =>
+              setNovoTecnico({
+                ...novoTecnico,
+                nome: e.target.value
+              })
+            } 
+            required 
+          />
+        </div>
+
+        {/* EMAIL */}
+        <div>
+          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+            E-mail
+          </label>
+
+          <input 
+            type="email" 
+            className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-indigo-600 font-bold" 
+            value={novoTecnico.email} 
+            onChange={(e) =>
+              setNovoTecnico({
+                ...novoTecnico,
+                email: e.target.value
+              })
+            } 
+            required 
+          />
+        </div>
+
+        {/* TELEFONE */}
+<div>
+  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+    Telefone
+  </label>
+
+  <input
+    type="text"
+    placeholder="(88) 99999-9999"
+    className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-indigo-600 font-bold"
+    value={novoTecnico.telefone || ''}
+    onChange={(e) => {
+
+      let valor = e.target.value.replace(/\D/g, '');
+
+      valor = valor.replace(/^(\d{2})(\d)/g, '($1) $2');
+      valor = valor.replace(/(\d{5})(\d)/, '$1-$2');
+
+      setNovoTecnico({
+        ...novoTecnico,
+        telefone: valor
+      });
+    }}
+    maxLength={15}
+    required
+  />
+</div>
+
+        {/* SENHA */}
+        <div>
+          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+            {novoTecnico.id
+              ? 'Nova Senha (deixe em branco para manter)'
+              : 'Senha'}
+          </label>
+
+          <input 
+            type="password" 
+            className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-indigo-600 font-bold" 
+            value={novoTecnico.senha || ''} 
+            onChange={(e) =>
+              setNovoTecnico({
+                ...novoTecnico,
+                senha: e.target.value
+              })
+            } 
+            required={!novoTecnico.id} 
+          />
         </div>
 
         <div className="flex gap-4">
-          <button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest text-xs transition-all">
-            {novoTecnico.id ? 'Atualizar Técnico' : 'Finalizar Cadastro'}
+
+          {/* SALVAR */}
+          <button
+            type="submit"
+            className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest text-xs transition-all"
+          >
+            {novoTecnico.id
+              ? 'Atualizar Técnico'
+              : 'Finalizar Cadastro'}
           </button>
-          
-          {novoTecnico.id && (
-            <button 
-              type="button" 
-              onClick={() => setNovoTecnico({ nome: '', email: '', senha: '' })}
-              className="px-6 bg-slate-800 hover:bg-slate-700 text-slate-400 font-black rounded-2xl uppercase text-[10px] transition-all"
-            >
-              Cancelar
-            </button>
-          )}
+
+          {/* CANCELAR */}
+          <button
+            type="button"
+            onClick={() => {
+              setNovoTecnico({
+                nome: '',
+                email: '',
+                telefone: '',
+                senha: ''
+              });
+
+              setStatusCadastro('');
+            }}
+            className="px-8 bg-slate-800 hover:bg-slate-700 text-slate-400 font-black rounded-2xl uppercase text-[10px] transition-all"
+          >
+            Cancelar
+          </button>
+
         </div>
       </form>
 
-      {statusCadastro && <div className={`mt-8 p-4 rounded-2xl text-center text-xs font-black uppercase ${statusCadastro.includes('✅') ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>{statusCadastro}</div>}
-    </div>
-
-    <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl">
-      <div className="p-6 border-b border-slate-800 flex justify-between items-center">
-        <h3 className="font-black text-xl italic text-slate-200 uppercase">Equipe Técnica</h3>
-        <span className="text-[10px] font-black bg-slate-800 px-3 py-1 rounded-full text-slate-500 uppercase">{tecnicos.length} Técnicos</span>
-      </div>
-      <table className="w-full text-left">
-        <thead className="bg-slate-800/50 text-slate-500 text-[10px] font-black uppercase">
-          <tr>
-            <th className="p-6">Nome</th>
-            <th className="p-6">E-mail</th>
-            <th className="p-6 text-center">Ações</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-800">
-          {tecnicos.map(t => (
-            <tr key={t.id} className="hover:bg-slate-800/30 transition-all font-bold">
-              <td className="p-6 text-slate-200">{t.nome_completo || t.nome}</td>
-              <td className="p-6 text-sm text-slate-400">{t.email}</td>
-              <td className="p-6">
-                <div className="flex justify-center gap-3">
-                  {/* EDITAR */}
-                  <button 
-                    onClick={() => {
-                      setNovoTecnico({ ...t, nome: t.nome_completo || t.nome, senha: '' });
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className="p-2 bg-indigo-600/10 hover:bg-indigo-600 text-indigo-500 hover:text-white rounded-xl transition-all"
-                    title="Editar Técnico"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
-                  </button>
-
-                  {/* EXCLUIR */}
-                  <button 
-                    onClick={() => excluirTecnico(t.id)}
-                    className="p-2 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white rounded-xl transition-all"
-                    title="Excluir Técnico"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {statusCadastro && (
+        <div
+          className={`mt-8 p-4 rounded-2xl text-center text-xs font-black uppercase ${
+            statusCadastro.includes('✅')
+              ? 'bg-green-500/10 text-green-500'
+              : 'bg-red-500/10 text-red-500'
+          }`}
+        >
+          {statusCadastro}
+        </div>
+      )}
     </div>
   </div>
 )}
@@ -894,14 +1029,34 @@ const faturamentoSemanal = useMemo(() => {
 {abaAtiva === 'tecnicosall' && (
   <div className="space-y-6">
 
-    <div className="flex justify-between items-center">
+    {/* TOPO */}
+    <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+
       <h3 className="text-3xl font-black italic tracking-tighter text-white uppercase">
         Todos os Técnicos
       </h3>
 
-      <span className="bg-indigo-600 text-white px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest">
-        {tecnicos.length} técnicos
-      </span>
+      <div className="flex items-center gap-3">
+
+        {/* PESQUISA */}
+        <input
+          type="text"
+          placeholder="Pesquisar técnico..."
+          value={pesquisaTecnico || ''}
+          onChange={(e) => setPesquisaTecnico(e.target.value)}
+          className="bg-slate-900 border-2 border-slate-800 px-4 py-3 rounded-2xl text-white outline-none focus:border-indigo-600 font-bold text-sm w-64"
+        />
+
+        {/* QUANTIDADE */}
+        <span className="bg-indigo-600 text-white px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest whitespace-nowrap">
+          {tecnicos.filter((t) =>
+            (t.nome_completo || t.nome || '')
+              .toLowerCase()
+              .includes((pesquisaTecnico || '').toLowerCase())
+          ).length} técnicos
+        </span>
+
+      </div>
     </div>
 
     <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl">
@@ -913,86 +1068,100 @@ const faturamentoSemanal = useMemo(() => {
             <tr>
               <th className="p-6">Nome</th>
               <th className="p-6">E-mail</th>
+              <th className="p-6">Telefone</th>
               <th className="p-6 text-center">Ações</th>
             </tr>
           </thead>
 
           <tbody className="divide-y divide-slate-800">
-            {tecnicos.map((t) => (
-              <tr
-                key={t.id}
-                className="hover:bg-slate-800/30 transition-all font-bold"
-              >
-                <td className="p-6 text-slate-200">
-                  {t.nome_completo || t.nome}
-                </td>
 
-                <td className="p-6 text-slate-400">
-                  {t.email}
-                </td>
+            {tecnicos
+              .filter((t) =>
+                (t.nome_completo || t.nome || '')
+                  .toLowerCase()
+                  .includes((pesquisaTecnico || '').toLowerCase())
+              )
+              .map((t) => (
+                <tr
+                  key={t.id}
+                  className="hover:bg-slate-800/30 transition-all font-bold"
+                >
+                  <td className="p-6 text-slate-200">
+                    {t.nome_completo || t.nome}
+                  </td>
 
-                <td className="p-6">
-                  <div className="flex justify-center gap-3">
+                  <td className="p-6 text-slate-400">
+                    {t.email}
+                  </td>
 
-                    {/* EDITAR */}
-                    <button
-                      onClick={() => {
-                        setNovoTecnico({
-                          ...t,
-                          nome: t.nome_completo || t.nome,
-                          senha: ''
-                        });
+                  {/* TELEFONE */}
+                  <td className="p-6 text-slate-400">
+                    {t.telefone || 'Não informado'}
+                  </td>
 
-                        setAbaAtiva('tecnicos');
+                  <td className="p-6">
+                    <div className="flex justify-center gap-3">
 
-                        window.scrollTo({
-                          top: 0,
-                          behavior: 'smooth'
-                        });
-                      }}
-                      className="p-3 bg-indigo-600/10 hover:bg-indigo-600 text-indigo-500 hover:text-white rounded-2xl transition-all"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-4 w-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
+                      {/* EDITAR */}
+                      <button
+                        onClick={() => {
+                          setNovoTecnico({
+                            ...t,
+                            nome: t.nome_completo || t.nome,
+                            senha: ''
+                          });
+
+                          setAbaAtiva('tecnicos');
+
+                          window.scrollTo({
+                            top: 0,
+                            behavior: 'smooth'
+                          });
+                        }}
+                        className="p-3 bg-indigo-600/10 hover:bg-indigo-600 text-indigo-500 hover:text-white rounded-2xl transition-all"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                        />
-                      </svg>
-                    </button>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                          />
+                        </svg>
+                      </button>
 
-                    {/* EXCLUIR */}
-                    <button
-                      onClick={() => excluirTecnico(t.id)}
-                      className="p-3 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white rounded-2xl transition-all"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-4 w-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
+                      {/* EXCLUIR */}
+                      <button
+                        onClick={() => excluirTecnico(t.id)}
+                        className="p-3 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white rounded-2xl transition-all"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                        />
-                      </svg>
-                    </button>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
 
-                  </div>
-                </td>
-              </tr>
-            ))}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+
           </tbody>
 
         </table>
@@ -1026,7 +1195,7 @@ const faturamentoSemanal = useMemo(() => {
           </thead>
           <tbody className="divide-y divide-slate-800">
             {servicos.filter(s => isFinalizado(s.status)).map(s => {
-              const preco = conv(s.preço);
+              const preco = conv(s.preco);
               const custo = conv(s.custo_pecas);
               const lucro = preco - custo;
 
@@ -1081,7 +1250,7 @@ const faturamentoSemanal = useMemo(() => {
           <p className="text-3xl font-black text-white italic">
             R$ {servicos
               .filter(s => isFinalizado(s.status))
-              .reduce((acc, s) => acc + (conv(s.preço) - conv(s.custo_pecas)), 0)
+              .reduce((acc, s) => acc + (conv(s.preco) - conv(s.custo_pecas)), 0)
               .toFixed(2)}
           </p>
         </div>
@@ -1119,7 +1288,7 @@ const faturamentoSemanal = useMemo(() => {
                 <td className="p-6 text-sm text-slate-400">{s.cliente || '---'}</td>
                 <td className="p-6">
                   {abaAtiva === 'finalizados' ? (
-                    <span className="text-emerald-400 font-mono">R$ {conv(s.preço).toFixed(2)}</span>
+                    <span className="text-emerald-400 font-mono">R$ {conv(s.preco).toFixed(2)}</span>
                   ) : (
                     <span className={`px-3 py-1 rounded-full text-[10px] uppercase ${isFinalizado(s.status) ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>
                       {s.status}
@@ -1194,12 +1363,20 @@ const faturamentoSemanal = useMemo(() => {
   value={
     clientesOptions.find(opt => opt.value === servicoEditando.cliente_id) || null
   }
-  onChange={(selected) =>
-    setServicoEditando({
-      ...servicoEditando,
-      cliente_id: selected?.value || '' // Removi o Number() por segurança
-    })
-  }
+  onChange={(selected) => {
+  const clienteSelecionado = clientes.find(
+    c => c.id === Number(selected?.value)
+  );
+
+  setServicoEditando({
+    ...servicoEditando,
+    cliente_id: Number(selected?.value) || '',
+    cliente: clienteSelecionado?.nome || '',
+    telefone: clienteSelecionado?.telefone || '',
+    cpf_cnpj: clienteSelecionado?.cpf_cnpj || '',
+    endereco: clienteSelecionado?.endereco || ''
+  });
+}}
   styles={{
     control: (base) => ({
       ...base,
@@ -1283,9 +1460,9 @@ const faturamentoSemanal = useMemo(() => {
             <input
               type="number"
               className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600"
-              value={servicoEditando.preço || ''}
+              value={servicoEditando.preco || ''}
               onChange={e =>
-                setServicoEditando({ ...servicoEditando, preço: e.target.value })
+                setServicoEditando({ ...servicoEditando, preco: e.target.value })
               }
             />
           </div>
