@@ -1,12 +1,16 @@
 // ✅ CÓDIGO COMPLETO CORRIGIDO (LÓGICA AJUSTADA, LAYOUT PRESERVADO)
 
 import { useEffect, useState, useMemo } from 'react';
-import Select from 'react-select';
+import Select from 'react-select';   
 import { useRouter } from 'next/router';
 import { supabase } from '../../public/lib/supabase';
-
+import { Fragment } from 'react';
 
 export default function AdminDashboard() {
+
+  const [servicoExpandido, setServicoExpandido] = useState(null);
+
+  const [buscaRelatorio, setBuscaRelatorio] = useState('');
 
   const [pesquisaTecnico, setPesquisaTecnico] = useState('');
 
@@ -1173,152 +1177,313 @@ return (
  {abaAtiva === 'relatorios' && (
   <div className="space-y-6">
     <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl">
-      <div className="p-6 border-b border-slate-800 flex justify-between items-center">
-        <h3 className="font-black text-xl italic text-slate-200 uppercase tracking-tighter">
-          Detalhamento Financeiro
-        </h3>
-        <span className="text-[10px] font-black bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-full uppercase">
-          {servicos.filter(s => isFinalizado(s.status)).length} Serviços Finalizados
-        </span>
-      </div>
       
+      {/* HEADER PRINCIPAL COM BUSCA */}
+      <div className="p-8 border-b border-slate-800 flex flex-col md:flex-row md:justify-between md:items-center gap-6 bg-slate-800/20">
+        <div>
+          <h3 className="font-black text-2xl italic text-slate-100 uppercase tracking-tighter leading-none">
+            Relatório de Serviços
+          </h3>
+          <p className="text-[10px] text-slate-500 uppercase font-bold tracking-[0.2em] mt-2">Histórico de Aparelhos e Soluções Aplicadas</p>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="relative group">
+            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-500 group-focus-within:text-emerald-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <input 
+              type="text"
+              placeholder="BUSCAR CLIENTE OU APARELHO..."
+              value={buscaRelatorio}
+              onChange={(e) => setBuscaRelatorio(e.target.value)}
+              className="bg-slate-950 border border-slate-800 text-[10px] font-bold tracking-widest text-white rounded-2xl py-3 pl-12 pr-6 w-64 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-all placeholder:text-slate-700"
+            />
+          </div>
+
+          <div className="bg-emerald-500/10 border border-emerald-500/20 px-4 py-2 rounded-2xl min-w-[120px]">
+            <span className="text-[10px] font-black text-emerald-500 uppercase block leading-none mb-1 text-center">Total Concluído</span>
+            <span className="text-xl font-black text-emerald-400 block leading-none text-center">
+              {servicos.filter(s => isFinalizado(s.status)).length}
+            </span>
+          </div>
+        </div>
+      </div>
+
       <div className="overflow-x-auto">
-        <table className="w-full text-left">
-          <thead className="bg-slate-800/50 text-slate-500 text-[10px] font-black uppercase">
-            <tr>
-              <th className="p-6">Equipamento</th>
-              <th className="p-6">Mão de Obra</th>
-              <th className="p-6">Custo Peças</th>
-              <th className="p-6">Lucro Líquido</th>
-              <th className="p-6 text-center">Ações</th>
+        <table className="w-full border-collapse table-fixed">
+          <thead>
+            <tr className="bg-slate-800/50 text-[10px] font-black text-slate-500 uppercase tracking-[0.15em]">
+              <th className="p-6 text-left w-[180px]">Aparelho</th>
+              <th className="p-6 text-left w-[150px]">Cliente</th>
+              <th className="p-6 text-left w-[150px]">Técnico</th>
+              <th className="p-6 text-left">Problema & Solução</th>
+              <th className="p-6 text-center w-[120px]">Ações</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800">
-            {servicos.filter(s => isFinalizado(s.status)).map(s => {
-              const preco = conv(s.preco);
-              const custo = conv(s.custo_pecas);
-              const lucro = preco - custo;
 
-              return (
-                <tr key={s.id} className="hover:bg-slate-800/30 transition-all font-bold">
+          <tbody className="divide-y divide-slate-800">
+            {servicos
+              .filter(s => isFinalizado(s.status))
+              .filter(s => 
+                s.cliente?.toLowerCase().includes(buscaRelatorio.toLowerCase()) || 
+                s.equipamento?.toLowerCase().includes(buscaRelatorio.toLowerCase()) ||
+                s.id?.toString().includes(buscaRelatorio)
+              )
+              .map(s => (
+                <tr key={s.id} className="hover:bg-slate-800/30 transition-colors group">
+                  
+                  {/* COLUNA APARELHO */}
                   <td className="p-6">
-                    <div className="text-slate-200">{s.equipamento}</div>
-                    <div className="text-[10px] text-slate-500 uppercase font-normal font-mono">
-                      ID: {s.id?.toString().slice(0,8)}
+                    <div className="flex flex-col">
+                      <span className="text-slate-100 text-sm font-black uppercase italic tracking-tight truncate">
+                        {s.equipamento}
+                      </span>
+                      <span className="text-[9px] font-mono text-slate-600 uppercase mt-1">
+                        Ref: {s.id?.toString().slice(-8)}
+                      </span>
                     </div>
                   </td>
-                  <td className="p-6 text-emerald-400">R$ {preco.toFixed(2)}</td>
-                  <td className="p-6 text-red-400">R$ {custo.toFixed(2)}</td>
-                  <td className={`p-6 ${lucro >= 0 ? 'text-blue-400' : 'text-orange-500'}`}>
-                    R$ {lucro.toFixed(2)}
-                  </td>
-                  <td className="p-6">
-                    <div className="flex justify-center gap-3">
-                      {/* BOTÃO EDITAR */}
-                      <button 
-                        onClick={() => editarServico(s)}
-                        className="p-2 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white rounded-xl transition-all"
-                        title="Editar Registro"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
-                      </button>
 
-                      {/* BOTÃO EXCLUIR */}
-                      <button 
-                        onClick={() => excluirServico(s.id)}
-                        className="p-2 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white rounded-xl transition-all"
-                        title="Excluir Registro"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
+                  {/* COLUNA CLIENTE */}
+                  <td className="p-6">
+                    <span className="text-emerald-400 text-xs font-black uppercase tracking-widest truncate block">
+                      {s.cliente || 'Consumidor'}
+                    </span>
+                  </td>
+
+                  {/* COLUNA TÉCNICO */}
+                  <td className="p-6">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div>
+                      <span className="text-[10px] text-slate-300 font-bold uppercase tracking-wider">
+                        {s.tecnico || 'Yuri'}
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* COLUNA PROBLEMA & SOLUÇÃO */}
+                  <td className="p-6">
+                    <div className="bg-slate-950/40 border border-slate-800/50 rounded-xl p-3 space-y-2">
+                      <p className="text-[10px] text-slate-400 leading-tight">
+                        <span className="text-amber-500/80 font-black mr-2 uppercase text-[8px]">Defeito:</span>
+                        {/* AQUI LÊ A DESCRIÇÃO DO BD */}
+                        {s.descricao || 'Não informado'}
+                      </p>
+                      <p className="text-[11px] text-slate-200 leading-tight font-medium">
+                        <span className="text-emerald-500 font-black mr-2 uppercase text-[8px]">Peça/Reparo:</span>
+                        {s.logs || s.nota_tecnica || 'Finalizado conforme padrão.'}
+                      </p>
+                    </div>
+                  </td>
+
+                  {/* COLUNA AÇÕES */}
+                  <td className="p-6 text-center">
+                    <div className="flex justify-center gap-2">
+                      <button onClick={() => editarServico(s)} className="w-8 h-8 flex items-center justify-center bg-slate-800 text-slate-400 hover:text-white hover:bg-blue-600 rounded-lg transition-all border border-slate-700 shadow-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                      </button>
+                      <button onClick={() => excluirServico(s.id)} className="w-8 h-8 flex items-center justify-center bg-slate-800 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all border border-slate-700 shadow-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                       </button>
                     </div>
                   </td>
                 </tr>
-              );
-            })}
+              ))}
           </tbody>
         </table>
       </div>
-      
-      <div className="bg-slate-800/30 p-8 border-t border-slate-800 flex justify-end">
-        <div className="text-right">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Resultado Geral (Lucro Líquido)</p>
-          <p className="text-3xl font-black text-white italic">
-            R$ {servicos
-              .filter(s => isFinalizado(s.status))
-              .reduce((acc, s) => acc + (conv(s.preco) - conv(s.custo_pecas)), 0)
-              .toFixed(2)}
-          </p>
-        </div>
+
+      <div className="p-4 bg-slate-950/80 border-t border-slate-800 text-center">
+        <p className="text-[9px] font-black text-slate-600 uppercase tracking-[0.3em]">
+          Controle de Ordens Finalizadas
+        </p>
       </div>
     </div>
   </div>
-)}
+)} 
 
         {(abaAtiva === 'servicos' || abaAtiva === 'finalizados') && (
   <div className="space-y-6">
-    {abaAtiva === 'servicos' && (
-      <div className="flex justify-between items-center">
-        <h3 className="text-2xl font-black uppercase italic tracking-tighter text-white">Gerenciamento de Serviços</h3>
-        <button onClick={abrirModalNovo} className="bg-blue-600 hover:bg-blue-500 px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-blue-900/40 text-white">
-          + Novo Serviço
-        </button>
-      </div>
-    )}
-    
+    <div className="flex justify-between items-center">
+      <h3 className="text-2xl font-black uppercase italic tracking-tighter text-white">
+        Gerenciamento de Serviços
+      </h3>
+
+      <button
+        onClick={abrirModalNovo}
+        className="bg-blue-600 hover:bg-blue-500 px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-blue-900/40 text-white"
+      >
+        + Novo Serviço
+      </button>
+    </div>
+
     <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl">
       <div className="overflow-x-auto">
-        <table className="w-full text-left">
+        <table className="w-full text-left border-collapse">
+
           <thead className="bg-slate-800/50 text-slate-500 text-[10px] font-black uppercase tracking-widest">
-            <tr> 
-              <th className="p-6">Equipamento</th> 
-              <th className="p-6">Cliente</th> 
-              {abaAtiva === 'finalizados' ? <th className="p-6">Valor</th> : <th className="p-6">Status</th>} 
-              <th className="p-6 text-center">Ações / Data</th> 
+            <tr>
+              <th className="p-6">Equipamento</th>
+              <th className="p-6">Cliente</th>
+              {abaAtiva === 'finalizados' ? (
+                <th className="p-6">Valor</th>
+              ) : (
+                <th className="p-6">Status</th>
+              )}
+              <th className="p-6 text-center">Ações / Data</th>
             </tr>
           </thead>
+
           <tbody className="divide-y divide-slate-800">
-            {servicos.filter(s => abaAtiva === 'finalizados' ? isFinalizado(s.status) : true).map(s => (
-              <tr key={s.id} className="hover:bg-slate-800/30 transition-all font-bold">
-                <td className="p-6 text-slate-200">{s.equipamento}</td>
-                <td className="p-6 text-sm text-slate-400">{s.cliente || '---'}</td>
-                <td className="p-6">
-                  {abaAtiva === 'finalizados' ? (
-                    <span className="text-emerald-400 font-mono">R$ {conv(s.preco).toFixed(2)}</span>
-                  ) : (
-                    <span className={`px-3 py-1 rounded-full text-[10px] uppercase ${isFinalizado(s.status) ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>
-                      {s.status}
-                    </span>
+            {servicos
+              .filter((s) =>
+                abaAtiva === 'finalizados' ? isFinalizado(s.status) : true
+              )
+              .map((s) => (
+                <Fragment key={s.id}>
+
+                  {/* LINHA PRINCIPAL */}
+                  <tr
+                    className={`hover:bg-slate-800/30 transition-all font-bold ${
+                      servicoExpandido === s.id ? 'bg-slate-800/60' : ''
+                    }`}
+                  >
+                    <td className="p-6 text-slate-200">
+                      <div className="flex items-center gap-3">
+
+                        <button
+                          onClick={() =>
+                            setServicoExpandido(
+                              servicoExpandido === s.id ? null : s.id
+                            )
+                          }
+                          className={`p-2 rounded-lg transition-all ${
+                            servicoExpandido === s.id
+                              ? 'bg-emerald-500 text-white'
+                              : 'bg-slate-800 text-slate-500'
+                          }`}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={3}
+                              d={
+                                servicoExpandido === s.id
+                                  ? "M5 15l7-7 7 7"
+                                  : "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                              }
+                            />
+                          </svg>
+                        </button>
+
+                        <span>{s.equipamento}</span>
+                      </div>
+                    </td>
+
+                    <td className="p-6 text-sm text-slate-400">
+                      {s.cliente || '---'}
+                    </td>
+
+                    <td className="p-6">
+                      {abaAtiva === 'finalizados' ? (
+                        <span className="text-emerald-400 font-mono">
+                          R$ {conv(s.preco).toFixed(2)}
+                        </span>
+                      ) : (
+                        <span
+                          className={`px-3 py-1 rounded-full text-[10px] uppercase ${
+                            isFinalizado(s.status)
+                              ? 'bg-green-500/10 text-green-500'
+                              : 'bg-yellow-500/10 text-yellow-500'
+                          }`}
+                        >
+                          {s.status}
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="p-6">
+                      <div className="flex justify-center items-center gap-3">
+
+                        <button
+                          onClick={() => editarServico(s)}
+                          className="p-2 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white rounded-lg transition-all"
+                        >
+                          ✏️
+                        </button>
+
+                        <button
+                          onClick={() => excluirServico(s.id)}
+                          className="p-2 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white rounded-lg transition-all"
+                        >
+                          🗑️
+                        </button>
+
+                      </div>
+                    </td>
+                  </tr>
+
+                  {/* DETALHES */}
+                  {servicoExpandido === s.id && (
+                    <tr className="bg-slate-950/80">
+                      <td colSpan={4} className="p-8 border-x-2 border-emerald-500/30">
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+
+                          <div>
+                            <span className="text-[10px] font-black text-slate-500 uppercase block mb-2">
+                              Defeito
+                            </span>
+                            <p className="text-sm text-slate-300 italic">
+                              {s.descricao || 'Sem descrição cadastrada'}
+                            </p>
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] font-black text-slate-500 uppercase block mb-2">
+                              Solução
+                            </span>
+                            <p className="text-sm text-emerald-400 font-medium">
+                              {s.logs || s.nota_tecnica || 'Nenhuma nota registrada.'}
+                            </p>
+                          </div>
+
+                          <div className="text-right">
+                            <span className="text-[10px] font-black text-slate-500 uppercase block mb-1">
+                              Técnico
+                            </span>
+
+                            <span className="text-blue-400 font-black uppercase text-xs">
+                              {s.tecnico || 'Yuri'}
+                            </span>
+
+                            <div className="text-[9px] text-slate-600 mt-2 font-mono">
+                              {s.tempo
+                                ? new Date(s.tempo).toLocaleString('pt-BR')
+                                : 'Data não disponível'}
+                            </div>
+                          </div>
+
+                        </div>
+
+                      </td>
+                    </tr>
                   )}
-                </td>
-                <td className="p-6">
-                  <div className="flex justify-center items-center gap-3">
-                    {/* EDITAR */}
-                    <button onClick={() => editarServico(s)} className="p-2 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white rounded-lg transition-all" title="Editar">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                      </svg>
-                    </button>
-                    {/* EXCLUIR */}
-                    <button onClick={() => excluirServico(s.id)} className="p-2 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white rounded-lg transition-all" title="Excluir">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                    {abaAtiva === 'finalizados' && (
-                       <span className="text-[10px] text-slate-600 ml-2 border-l border-slate-800 pl-3 uppercase">
-                         {s.tempo ? new Date(s.tempo).toLocaleDateString('pt-BR') : '---'}
-                       </span>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
+
+                </Fragment>
+              ))}
           </tbody>
+
         </table>
       </div>
     </div>
