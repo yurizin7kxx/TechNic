@@ -75,7 +75,7 @@ useEffect(() => {
       if (data) {
         setAparelho(data.equipamento || '');
         setProblema(data.descricao || '');
-        setValor(data.preço?.toString() || '');
+        setValor(data.preco?.toString() || '');
         setCustoPecas(data.valor_pecas?.toString() || '');
         setGarantia(data.garantia || '90 dias');
         setAceiteCliente(data.aceite_cliente || false); 
@@ -182,17 +182,19 @@ useEffect(() => {
       const historicoLimpo = historico.filter(h => h && h.trim() !== "");
       const pecasLimpas = pecas.filter(p => p && p.trim() !== "");
       const pecasString = pecasLimpas.join(', ');
-
+      
+      console.log(clienteSelecionado);
+      
       // MANTENDO SEU UPSERT: apenas garanti o trim() no equipamento
       const { error } = await supabase
         .from('servicos_tecnico')
         .upsert([{ 
-          cliente_id: clienteSelecionado, 
+          cliente_id: Number(clienteSelecionado), 
           tecnico: user.id,
           equipamento: aparelho.trim(), // Garante que ignore espaços extras
           status: statusFinal,
           descricao: problema,
-          preço: parseFloat(valor), 
+          preco: parseFloat(valor), 
           valor_pecas: parseFloat(custoPecas),
           peca_substituida: pecasString,
           garantia: garantia,
@@ -247,9 +249,9 @@ useEffect(() => {
       .find(opt => opt.value === clienteSelecionado) || null
   }
 
-  onChange={(selected) =>
-    handleSelecionarCliente(selected?.value || '')
-  }
+ onChange={(selected) =>
+  handleSelecionarCliente(Number(selected?.value))
+}
 
   styles={{
     control: (base, state) => ({

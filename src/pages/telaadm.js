@@ -8,6 +8,10 @@ import { Fragment } from 'react';
 
 export default function AdminDashboard() {
 
+  const [clienteSelecionado, setClienteSelecionado] = useState(null);
+
+  const [pesquisaServico, setPesquisaServico] = useState('');
+
   const [servicoExpandido, setServicoExpandido] = useState(null);
 
   const [buscaRelatorio, setBuscaRelatorio] = useState('');
@@ -299,9 +303,19 @@ async function carregarDadosIniciais() {
   }
 
   function editarServico(servico) {
-    setServicoEditando(servico);
-    setModalAberto(true);
-  }
+
+  setClienteSelecionado({
+    value: servico.cliente_id,
+    label: servico.cliente
+  });
+
+  setServicoEditando({
+    ...servico,
+    cliente_id: servico.cliente_id
+  });
+
+  setModalAberto(true);
+}
 
   const abrirModalNovo = () => {
     setServicoEditando({ equipamento: '', cliente: '', cliente_id: '', cpf_cnpj: '', endereco: '', status: 'Em Análise', preco: 0, custo_pecas: 0, telefone: '' });
@@ -311,9 +325,11 @@ async function carregarDadosIniciais() {
   async function salvarServico(e) {
   e.preventDefault();
 
+    console.log('SERVICO:', servicoEditando);
+
   const payload = {
   ...servicoEditando,
-  cliente_id: Number(servicoEditando.cliente_id),
+  cliente_id: servicoEditando.cliente_id,
   preco: Number(servicoEditando.preco),
   custo_pecas: Number(servicoEditando.custo_pecas)
 };
@@ -1307,41 +1323,77 @@ return (
 
         {(abaAtiva === 'servicos' || abaAtiva === 'finalizados') && (
   <div className="space-y-6">
-    <div className="flex justify-between items-center">
+
+    {/* TOPO */}
+    <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+
       <h3 className="text-2xl font-black uppercase italic tracking-tighter text-white">
         Gerenciamento de Serviços
       </h3>
 
-      <button
-        onClick={abrirModalNovo}
-        className="bg-blue-600 hover:bg-blue-500 px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-blue-900/40 text-white"
-      >
-        + Novo Serviço
-      </button>
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+
+        {/* PESQUISA */}
+        <input
+          type="text"
+          placeholder="Pesquisar serviço..."
+          value={pesquisaServico}
+          onChange={(e) => setPesquisaServico(e.target.value)}
+          className="bg-slate-900 border border-slate-700 focus:border-blue-500 outline-none px-5 py-3 rounded-xl text-sm text-white placeholder:text-slate-500 w-full sm:w-72 transition-all"
+        />
+
+        {/* BOTÃO */}
+        <button
+          onClick={abrirModalNovo}
+          className="bg-blue-600 hover:bg-blue-500 px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-blue-900/40 text-white whitespace-nowrap"
+        >
+          + Novo Serviço
+        </button>
+
+      </div>
     </div>
 
+    {/* TABELA */}
     <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl">
       <div className="overflow-x-auto">
+
         <table className="w-full text-left border-collapse">
 
           <thead className="bg-slate-800/50 text-slate-500 text-[10px] font-black uppercase tracking-widest">
             <tr>
               <th className="p-6">Equipamento</th>
               <th className="p-6">Cliente</th>
+
               {abaAtiva === 'finalizados' ? (
                 <th className="p-6">Valor</th>
               ) : (
                 <th className="p-6">Status</th>
               )}
+
               <th className="p-6 text-center">Ações / Data</th>
             </tr>
           </thead>
 
           <tbody className="divide-y divide-slate-800">
+
             {servicos
               .filter((s) =>
-                abaAtiva === 'finalizados' ? isFinalizado(s.status) : true
+                abaAtiva === 'finalizados'
+                  ? isFinalizado(s.status)
+                  : true
               )
+
+              .filter((s) => {
+                const termo = pesquisaServico.toLowerCase()
+
+                return (
+                  s.equipamento?.toLowerCase().includes(termo) ||
+                  s.cliente?.toLowerCase().includes(termo) ||
+                  s.status?.toLowerCase().includes(termo) ||
+                  s.tecnico?.toLowerCase().includes(termo)
+                )
+              })
+
               .map((s) => (
                 <Fragment key={s.id}>
 
@@ -1351,6 +1403,7 @@ return (
                       servicoExpandido === s.id ? 'bg-slate-800/60' : ''
                     }`}
                   >
+
                     <td className="p-6 text-slate-200">
                       <div className="flex items-center gap-3">
 
@@ -1379,8 +1432,8 @@ return (
                               strokeWidth={3}
                               d={
                                 servicoExpandido === s.id
-                                  ? "M5 15l7-7 7 7"
-                                  : "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                  ? 'M5 15l7-7 7 7'
+                                  : 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z'
                               }
                             />
                           </svg>
@@ -1412,21 +1465,50 @@ return (
                       )}
                     </td>
 
+                    {/* AÇÕES */}
                     <td className="p-6">
-                      <div className="flex justify-center items-center gap-3">
+                      <div className="flex justify-center items-center gap-4">
 
+                        {/* EDITAR */}
                         <button
                           onClick={() => editarServico(s)}
-                          className="p-2 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white rounded-lg transition-all"
+                          className="group w-12 h-12 flex items-center justify-center rounded-2xl bg-blue-900/30 hover:bg-blue-600 transition-all duration-300 shadow-lg"
                         >
-                          ✏️
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-5 w-5 text-blue-400 group-hover:text-white transition-all"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15.232 5.232l3.536 3.536M9 11l6.232-6.232a2.5 2.5 0 113.536 3.536L12.536 14.536a4 4 0 01-1.414.95L7 17l1.514-4.122A4 4 0 019.95 11z"
+                            />
+                          </svg>
                         </button>
 
+                        {/* EXCLUIR */}
                         <button
                           onClick={() => excluirServico(s.id)}
-                          className="p-2 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white rounded-lg transition-all"
+                          className="group w-12 h-12 flex items-center justify-center rounded-2xl bg-red-900/30 hover:bg-red-600 transition-all duration-300 shadow-lg"
                         >
-                          🗑️
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-5 w-5 text-red-400 group-hover:text-white transition-all"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 7L5 7M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"
+                            />
+                          </svg>
                         </button>
 
                       </div>
@@ -1436,7 +1518,10 @@ return (
                   {/* DETALHES */}
                   {servicoExpandido === s.id && (
                     <tr className="bg-slate-950/80">
-                      <td colSpan={4} className="p-8 border-x-2 border-emerald-500/30">
+                      <td
+                        colSpan={4}
+                        className="p-8 border-x-2 border-emerald-500/30"
+                      >
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
 
@@ -1444,6 +1529,7 @@ return (
                             <span className="text-[10px] font-black text-slate-500 uppercase block mb-2">
                               Defeito
                             </span>
+
                             <p className="text-sm text-slate-300 italic">
                               {s.descricao || 'Sem descrição cadastrada'}
                             </p>
@@ -1453,8 +1539,11 @@ return (
                             <span className="text-[10px] font-black text-slate-500 uppercase block mb-2">
                               Solução
                             </span>
+
                             <p className="text-sm text-emerald-400 font-medium">
-                              {s.logs || s.nota_tecnica || 'Nenhuma nota registrada.'}
+                              {s.logs ||
+                                s.nota_tecnica ||
+                                'Nenhuma nota registrada.'}
                             </p>
                           </div>
 
@@ -1482,6 +1571,7 @@ return (
 
                 </Fragment>
               ))}
+
           </tbody>
 
         </table>
@@ -1490,223 +1580,305 @@ return (
   </div>
 )}
 
-{/* MODAL SERVIÇO */}
-{modalAberto && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-    <div className="bg-slate-900 border-2 border-slate-800 w-full max-w-2xl rounded-3xl shadow-2xl p-10 overflow-y-auto max-h-[90vh]">
-      <h3 className="text-3xl font-black text-white mb-8 tracking-tighter italic uppercase">
-        {servicoEditando?.id ? 'Atualizar Registro' : 'Novo Registro de Entrada'}
-      </h3>
+  {/* MODAL SERVIÇO */}
+  {modalAberto && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+      <div className="bg-slate-900 border-2 border-slate-800 w-full max-w-2xl rounded-3xl shadow-2xl p-10 overflow-y-auto max-h-[90vh]">
+        <h3 className="text-3xl font-black text-white mb-8 tracking-tighter italic uppercase">
+          {servicoEditando?.id ? 'Atualizar Registro' : 'Novo Registro de Entrada'}
+        </h3>
 
-      <form onSubmit={salvarServico} className="space-y-6 text-left">
-        
-        {/* LINHA 1 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-  <div>
-    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
-      Equipamento
-    </label>
-    <input
-      className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600"
-      value={servicoEditando.equipamento || ''}
-      onChange={e =>
-        setServicoEditando({ ...servicoEditando, equipamento: e.target.value })
-      }
-      required
-    />
-  </div>
+        <form onSubmit={salvarServico} className="space-y-6 text-left">
+          
+          {/* LINHA 1 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-  <div>
-    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
-      Cliente
-    </label>
+            <div>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+                Equipamento
+              </label>
 
-    <Select
-  options={clientesOptions}
-  placeholder="Buscar cliente..."
-  noOptionsMessage={() => "Nenhum cliente encontrado"} // Mensagem caso não ache nada
-  value={
-    clientesOptions.find(opt => opt.value === servicoEditando.cliente_id) || null
-  }
-  onChange={(selected) => {
-  const clienteSelecionado = clientes.find(
-    c => c.id === Number(selected?.value)
+              <input
+                className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600"
+                value={servicoEditando.equipamento || ''}
+                onChange={e =>
+                  setServicoEditando({
+                    ...servicoEditando,
+                    equipamento: e.target.value
+                  })
+                }
+                required
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+                Cliente
+              </label>
+
+              <Select
+                options={clientesOptions}
+                placeholder="Buscar cliente..."
+                noOptionsMessage={() => "Nenhum cliente encontrado"}
+                value={clienteSelecionado}
+
+  getOptionLabel={(option) => option.label}
+  getOptionValue={(option) => String(option.value)}
+
+                onChange={(selected) => {
+
+  setClienteSelecionado(selected);
+
+  const cliente = clientes.find(
+    (c) => String(c.id) === String(selected.value)
   );
 
-  setServicoEditando({
-    ...servicoEditando,
-    cliente_id: Number(selected?.value) || '',
-    cliente: clienteSelecionado?.nome || '',
-    telefone: clienteSelecionado?.telefone || '',
-    cpf_cnpj: clienteSelecionado?.cpf_cnpj || '',
-    endereco: clienteSelecionado?.endereco || ''
-  });
+  console.log(cliente);
+
+  setServicoEditando((prev) => ({
+    ...prev,
+cliente_id: selected.value,
+cliente:
+      cliente?.nome_completo ||
+      cliente?.nome ||
+      selected.label,
+
+    telefone: cliente?.telefone || '',
+    cpf_cnpj: cliente?.cpf_cnpj || '',
+    endereco: cliente?.endereco || ''
+  }));
 }}
-  styles={{
-    control: (base) => ({
-      ...base,
-      backgroundColor: '#0f172a', // Cor igual ao seu painel
-      borderColor: '#1e293b',
-      padding: '4px',
-      boxShadow: 'none',
-      '&:hover': { borderColor: '#3b82f6' }
-    }),
-    menu: (base) => ({
-      ...base,
-      backgroundColor: '#0f172a',
-      border: '1px solid #1e293b',
-      zIndex: 9999 // Para o menu flutuar sobre tudo
-    }),
-    option: (base, state) => ({
-      ...base,
-      backgroundColor: state.isSelected
-        ? '#2563eb'
-        : state.isFocused
-        ? '#1e293b'
-        : 'transparent',
-      color: 'white',
-      padding: '12px',
-      '&:active': { backgroundColor: '#2563eb' }
-    }),
-    singleValue: (base) => ({
-      ...base,
-      color: 'white' // Texto do cliente selecionado
-    }),
-    input: (base) => ({
-      ...base,
-      color: 'white' // Texto de quando você está digitando
-    }),
-    placeholder: (base) => ({
-      ...base,
-      color: '#64748b'
-    })
-  }}
-/>
-</div> {/* ✅ FECHA A DIV DO CLIENTE */}
-</div> {/* ✅ fecha a GRID da LINHA 1 */}
 
-{/* LINHA 2 */}
-<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
-              CPF / CNPJ
-            </label>
-            <input
-              className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600"
-              value={servicoEditando.cpf_cnpj || ''}
-              onChange={e =>
-                setServicoEditando({ ...servicoEditando, cpf_cnpj: e.target.value })
-              }
-              required
-            />
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    backgroundColor: '#0f172a',
+                    borderColor: '#1e293b',
+                    padding: '4px',
+                    boxShadow: 'none',
+                    '&:hover': { borderColor: '#3b82f6' }
+                  }),
+
+                  menu: (base) => ({
+                    ...base,
+                    backgroundColor: '#0f172a',
+                    border: '1px solid #1e293b',
+                    zIndex: 9999
+                  }),
+
+                  option: (base, state) => ({
+                    ...base,
+                    backgroundColor: state.isSelected
+                      ? '#2563eb'
+                      : state.isFocused
+                      ? '#1e293b'
+                      : 'transparent',
+                    color: 'white',
+                    padding: '12px',
+                    '&:active': { backgroundColor: '#2563eb' }
+                  }),
+
+                  singleValue: (base) => ({
+                    ...base,
+                    color: 'white'
+                  }),
+
+                  input: (base) => ({
+                    ...base,
+                    color: 'white'
+                  }),
+
+                  placeholder: (base) => ({
+                    ...base,
+                    color: '#64748b'
+                  })
+                }}
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
-              Endereço Completo
-            </label>
-            <input
-              className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600"
-              value={servicoEditando.endereco || ''}
-              onChange={e =>
-                setServicoEditando({ ...servicoEditando, endereco: e.target.value })
-              }
-              required
-            />
-          </div>
-        </div>
+          {/* LINHA 2 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-        {/* LINHA 3 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
-              Preço Final (R$)
-            </label>
-            <input
-              type="number"
-              className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600"
-              value={servicoEditando.preco || ''}
-              onChange={e =>
-                setServicoEditando({ ...servicoEditando, preco: e.target.value })
-              }
-            />
+            {/* CPF / CNPJ */}
+            <div>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+                CPF / CNPJ
+              </label>
+
+              <input
+                className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600"
+                value={servicoEditando.cpf_cnpj || ''}
+                onChange={e => {
+                  let value = e.target.value.replace(/\D/g, '');
+
+                  // CPF
+                  if (value.length <= 11) {
+                    value = value
+                      .replace(/^(\d{3})(\d)/, '$1.$2')
+                      .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+                      .replace(/\.(\d{3})(\d)/, '.$1-$2');
+                  }
+
+                  // CNPJ
+                  else {
+                    value = value
+                      .replace(/^(\d{2})(\d)/, '$1.$2')
+                      .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+                      .replace(/\.(\d{3})(\d)/, '.$1/$2')
+                      .replace(/(\d{4})(\d)/, '$1-$2');
+                  }
+
+                  setServicoEditando({
+                    ...servicoEditando,
+                    cpf_cnpj: value
+                  });
+                }}
+                required
+              />
+            </div>
+
+            {/* ENDEREÇO */}
+            <div>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+                Endereço Completo
+              </label>
+
+              <input
+                className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600"
+                value={servicoEditando.endereco || ''}
+                onChange={e =>
+                  setServicoEditando({
+                    ...servicoEditando,
+                    endereco: e.target.value
+                  })
+                }
+                required
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
-              Custo de Peças (R$)
-            </label>
-            <input
-              type="number"
-              className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600"
-              value={servicoEditando.custo_pecas || ''}
-              onChange={e =>
-                setServicoEditando({ ...servicoEditando, custo_pecas: e.target.value })
-              }
-            />
-          </div>
-        </div>
+          {/* LINHA 3 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-        {/* LINHA 4 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
-              Telefone do Cliente
-            </label>
-            <input
-              className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600"
-              value={servicoEditando.telefone || ''}
-              onChange={e =>
-                setServicoEditando({ ...servicoEditando, telefone: e.target.value })
-              }
-              required
-            />
+            <div>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+                Preço Final (R$)
+              </label>
+
+              <input
+                type="number"
+                className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600"
+                value={servicoEditando.preco || ''}
+                onChange={e =>
+                  setServicoEditando({
+                    ...servicoEditando,
+                    preco: e.target.value
+                  })
+                }
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+                Custo de Peças (R$)
+              </label>
+
+              <input
+                type="number"
+                className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600"
+                value={servicoEditando.custo_pecas || ''}
+                onChange={e =>
+                  setServicoEditando({
+                    ...servicoEditando,
+                    custo_pecas: e.target.value
+                  })
+                }
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
-              Status Atual
-            </label>
-            <select
-              className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600"
-              value={servicoEditando.status}
-              onChange={e =>
-                setServicoEditando({ ...servicoEditando, status: e.target.value })
-              }
+          {/* LINHA 4 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            {/* TELEFONE */}
+            <div>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+                Telefone do Cliente
+              </label>
+
+              <input
+                className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600"
+                value={servicoEditando.telefone || ''}
+                onChange={e => {
+                  let value = e.target.value.replace(/\D/g, '').slice(0, 11);
+
+                  value = value
+                    .replace(/^(\d{2})(\d)/g, '($1) $2')
+                    .replace(/(\d)(\d{4})$/, '$1-$2');
+
+                  setServicoEditando({
+                    ...servicoEditando,
+                    telefone: value
+                  });
+                }}
+                required
+              />
+            </div>
+
+            {/* STATUS */}
+            <div>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+                Status Atual
+              </label>
+
+              <select
+                className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600"
+                value={servicoEditando.status}
+                onChange={e =>
+                  setServicoEditando({
+                    ...servicoEditando,
+                    status: e.target.value  
+                  })
+                }
+              >
+                <option value="Em Análise">Em Análise</option>
+                <option value="Aguardando Aprovação">Aguardando Aprovação</option>
+                <option value="Em Manutenção">Em Manutenção</option>
+                <option value="Pronto - Aguardando Retirada">
+                  Pronto - Aguardando Retirada
+                </option>
+                <option value="Finalizado">Finalizado</option>
+              </select>
+            </div>
+          </div>
+
+          {/* BOTÕES */}
+          <div className="flex gap-4 pt-6">
+
+            <button
+              type="submit"
+              className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest text-xs transition-all"
             >
-              <option value="Em Análise">Em Análise</option>
-              <option value="Aguardando Aprovação">Aguardando Aprovação</option>
-              <option value="Em Manutenção">Em Manutenção</option>
-              <option value="Pronto - Aguardando Retirada">Pronto - Aguardando Retirada</option>
-              <option value="Finalizado">Finalizado</option>
-            </select>
+              Confirmar e Salvar
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setModalAberto(false)}
+              className="px-8 bg-slate-800 hover:bg-slate-700 text-slate-400 font-black py-5 rounded-2xl uppercase tracking-widest text-xs transition-all"
+            >
+              Cancelar
+            </button>
+
           </div>
-        </div>
 
-        {/* BOTÕES */}
-        <div className="flex gap-4 pt-6">
-          <button
-            type="submit"
-            className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest text-xs transition-all"
-          >
-            Confirmar e Salvar
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setModalAberto(false)}
-            className="px-8 bg-slate-800 hover:bg-slate-700 text-slate-400 font-black py-5 rounded-2xl uppercase tracking-widest text-xs transition-all"
-          >
-            Cancelar
-          </button>
-        </div>
-
-      </form>
+        </form>
+      </div>
     </div>
+  )}
   </div>
-)}
-</div>
-</main>
-</div>);
-}
-
+  </main>
+  </div>
+  );
+  }
