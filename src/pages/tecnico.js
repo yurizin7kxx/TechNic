@@ -22,7 +22,7 @@ export default function PainelTecnicoEntrada() {
   async function carregarClientes() {
   const { data, error } = await supabase
     .from('clientes')
-    .select('id, nome , email')
+    .select('*')
     .order('nome' , { ascending: true });
 
   if (error) {
@@ -42,7 +42,7 @@ useEffect(() => {
       {
         event: '*',
         schema: 'public',
-        table: 'perfis',
+        table: 'clientes',
       },
       () => {
         carregarClientes();
@@ -190,6 +190,9 @@ useEffect(() => {
         .from('servicos_tecnico')
         .upsert([{ 
           cliente_id: Number(clienteSelecionado), 
+
+          cliente: clientes.find(c => c.id === clienteSelecionado)?.nome || '',
+
           tecnico: user.id,
           equipamento: aparelho.trim(), // Garante que ignore espaços extras
           status: statusFinal,

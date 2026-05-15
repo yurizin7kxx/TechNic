@@ -18,6 +18,8 @@ export default function AdminDashboard() {
 
   const [pesquisaTecnico, setPesquisaTecnico] = useState('');
 
+  
+
   const cadastrarTecnico = async (e) => {
   e.preventDefault();
 
@@ -250,41 +252,101 @@ async function carregarDadosIniciais() {
 
   async function cadastrarCliente(e) {
   e.preventDefault();
+
   setStatusCliente('⏳ Salvando...');
 
   try {
+
+    let error;
+
+    // EDITAR CLIENTE
     if (novoCliente.id) {
-      await supabase
-        .from('clientes')
-        .update(novoCliente)
-        .eq('id', novoCliente.id);
 
-      setStatusCliente('✅ Cliente atualizado!');
+      ({ error } = await supabase
+        .from('clientes')
+        .update({
+          nome: novoCliente.nome,
+          cpf_cnpj: novoCliente.cpf_cnpj,
+          email: novoCliente.email,
+          telefone: novoCliente.telefone,
+          endereco: novoCliente.endereco
+        })
+        .eq('id', novoCliente.id));
+
     } else {
-      await supabase
-        .from('clientes')
-        .insert([novoCliente]);
 
-      setStatusCliente('✅ Cliente cadastrado!');
+      // ✅ CRIA USUÁRIO NO AUTH
+      const { data: authData, error: authError } =
+        await supabase.auth.signUp({
+          email: novoCliente.email,
+          password: novoCliente.senha
+        });
+
+      if (authError) throw authError;
+
+      // ✅ PEGA ID DO AUTH
+      const userId = authData.user.id;
+
+      // ✅ INSERE NA TABELA CLIENTES
+      ({ error } = await supabase
+        .from('clientes')
+        .insert([
+          {
+            id: userId,
+            nome: novoCliente.nome,
+            cpf_cnpj: novoCliente.cpf_cnpj,
+            email: novoCliente.email,
+            telefone: novoCliente.telefone,
+            endereco: novoCliente.endereco,
+            senha: novoCliente.senha
+          }
+        ]));
+
+      if (error) throw error;
+
+      // ✅ INSERE EM PERFIS
+      const { error: perfilError } = await supabase
+  .from('perfis')
+  .insert([
+    {
+      id: userId,
+      nome_completo: novoCliente.nome,
+      email: novoCliente.email,
+      telefone: novoCliente.telefone,
+      tipo_perfil: 'cliente'
+    }
+  ]);
+
+      if (perfilError) throw perfilError;
     }
 
-    // limpa formulário
+    if (error) throw error;
+
+    setStatusCliente(
+      novoCliente.id
+        ? '✅ Cliente atualizado!'
+        : '✅ Cliente cadastrado!'
+    );
+
+    // LIMPA FORMULÁRIO
     setNovoCliente({
       nome: '',
       cpf_cnpj: '',
       email: '',
       telefone: '',
+      senha: '',
       endereco: ''
     });
 
-    // atualiza lista
+    // ATUALIZA LISTA
     await fetchClientes();
 
-    // muda automaticamente pra aba
+    // VAI PRA LISTA
     setAbaAtiva('clientesall');
 
-  } catch (error) {
-    setStatusCliente('❌ ' + error.message);
+  } catch (err) {
+    console.error(err);
+    setStatusCliente('❌ ' + err.message);
   }
 }
 
@@ -621,6 +683,31 @@ return (
 
         </div>
 
+        {/* LINHA 3 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+          {/* SENHA */}
+          <div>
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+              Senha
+            </label>
+
+            <input
+              type="password"
+              className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold"
+              value={novoCliente.senha || ''}
+              onChange={(e) =>
+                setNovoCliente({
+                  ...novoCliente,
+                  senha: e.target.value
+                })
+              }
+              placeholder="Digite a senha"
+              required={!novoCliente.id}
+            />
+          </div>
+        </div>
+
         {/* ENDEREÇO */}
         <div>
           <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
@@ -660,6 +747,7 @@ return (
                   cpf_cnpj: '',
                   email: '',
                   telefone: '',
+                  senha: '',
                   endereco: ''
                 })
               }
@@ -733,6 +821,7 @@ return (
               <th className="p-6">CPF / CNPJ</th>
               <th className="p-6">Telefone</th>
               <th className="p-6">E-mail</th>
+              <th className="p-6">Senha</th>
               <th className="p-6 text-center">Ações</th>
             </tr>
           </thead>
@@ -767,6 +856,11 @@ return (
 
                 <td className="p-6 text-slate-400">
                   {c.email || '---'}
+                </td>
+
+                {/* SENHA */}
+                <td className="p-6 text-slate-400 font-mono">
+                  {c.senha || '---'}
                 </td>
 
                 <td className="p-6">

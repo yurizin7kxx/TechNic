@@ -20,7 +20,7 @@ export default function LoginPage() {
         email,
         password,
       });
-
+    
       if (authError) throw authError;
 
       // 2. Busca o perfil real gravado no banco de dados
