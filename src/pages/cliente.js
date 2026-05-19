@@ -26,20 +26,36 @@ export default function DetalhesOSPage() {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      console.log('USER LOGADO:', user);
       if (!user) { 
         setLoading(false); 
         return; 
       }
 
       // BUSCA OTIMIZADA: Usando o ID do usuário logado diretamente na coluna cliente_id
-      const { data, error } = await supabase
-        .from('servicos_tecnico')
-        .select('*')
-        .eq('cliente_id', user.id) // Busca exata pelo ID
-        .neq('status', 'Finalizado') 
-        .order('id', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Busca o cliente pelo email do usuário logado
+const { data: cliente } = await supabase
+  .from('clientes')
+  .select('id')
+  .eq('email', user.email)
+  .single();
+  console.log('CLIENTE ENCONTRADO:', cliente);
+
+if (!cliente) {
+  setLoading(false);
+  return;
+}
+
+// Agora busca a OS usando o ID REAL do cliente
+const { data, error } = await supabase
+  .from('servicos_tecnico')
+  .select('*')
+  .eq('cliente_id', cliente.id)
+  .order('id', { ascending: false })
+  .limit(1)
+  .maybeSingle();
+  console.log('OS ENCONTRADA:', data);
+  console.log('ERRO OS:', error);
       
       if (data) {
         let logsFormatados = [];
@@ -61,7 +77,7 @@ export default function DetalhesOSPage() {
           aparelho: data.equipamento || "Dispositivo",
           cliente_nome: perfil?.nome_completo || user.email, // Exibe o nome do perfil
           status: data.status,
-          valor_total: Number(data.preço) || 0,
+          valor_total: Number(data.preco) || 0,
           problema_identificado: data.descricao,
           tecnico: "Equipe TechNic",
           data_entrada: data.tempo,
@@ -172,12 +188,37 @@ export default function DetalhesOSPage() {
                     <User size={16} className="text-blue-400" />
                     <span>{os.cliente_nome}</span>
                   </div>
-                  <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl border ${os.status === 'Recusado' ? 'bg-red-500/10 border-red-500/20 text-red-400' : os.aceite_cliente ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
-                    {os.status === 'Recusado' ? <XCircle size={16} /> : os.aceite_cliente ? <ShieldCheck size={16} /> : <AlertCircle size={16} />}
-                    <span className="font-bold">
-                        {os.status === 'Recusado' ? 'Recusado' : os.aceite_cliente ? 'Autorizado' : 'Aguardando Aprovação'}
-                    </span>
-                  </div>
+                  <div
+  className={`flex items-center gap-2 px-4 py-2 rounded-2xl border ${
+    os.status === 'Finalizado'
+      ? 'bg-blue-500/10 border-blue-500/20 text-blue-400'
+      : os.status === 'Recusado'
+      ? 'bg-red-500/10 border-red-500/20 text-red-400'
+      : os.aceite_cliente
+      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+      : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+  }`}
+>
+  {os.status === 'Finalizado' ? (
+    <CheckCircle2 size={16} />
+  ) : os.status === 'Recusado' ? (
+    <XCircle size={16} />
+  ) : os.aceite_cliente ? (
+    <ShieldCheck size={16} />
+  ) : (
+    <AlertCircle size={16} />
+  )}
+
+  <span className="font-bold">
+    {os.status === 'Finalizado'
+      ? 'Serviço Concluído'
+      : os.status === 'Recusado'
+      ? 'Recusado'
+      : os.aceite_cliente
+      ? 'Autorizado'
+      : 'Aguardando Aprovação'}
+  </span>
+</div>
                 </div>
               </div>
             </div>
@@ -231,7 +272,9 @@ export default function DetalhesOSPage() {
                    <span className="text-5xl font-black tracking-tighter">{os.valor_total.toFixed(2)}</span>
                 </div>
 
-                {!os.aceite_cliente && os.status !== 'Recusado' ? (
+                {!os.aceite_cliente &&
+os.status !== 'Recusado' &&
+os.status !== 'Finalizado' ? (
                   <div className="space-y-4">
                     <button 
                       onClick={confirmarAceite}
@@ -250,9 +293,21 @@ export default function DetalhesOSPage() {
                     </button>
                   </div>
                 ) : (
-                  <div className={`w-full py-4 rounded-3xl text-center text-[10px] font-black uppercase tracking-widest border ${os.status === 'Recusado' ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>
-                    {os.status === 'Recusado' ? 'Orçamento Recusado' : 'Orçamento Aprovado'}
-                  </div>
+                  <div
+  className={`w-full py-4 rounded-3xl text-center text-[10px] font-black uppercase tracking-widest border ${
+    os.status === 'Finalizado'
+      ? 'bg-blue-500/10 border-blue-500/20 text-blue-400'
+      : os.status === 'Recusado'
+      ? 'bg-red-500/10 border-red-500/20 text-red-400'
+      : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+  }`}
+>
+  {os.status === 'Finalizado'
+    ? 'Serviço Concluído'
+    : os.status === 'Recusado'
+    ? 'Orçamento Recusado'
+    : 'Orçamento Aprovado'}
+</div>  
                 )}
             </div>
 

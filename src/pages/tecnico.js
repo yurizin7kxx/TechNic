@@ -4,7 +4,7 @@ import { supabase } from '../../public/lib/supabase';
 
 export default function PainelTecnicoEntrada() {
   const [clientes, setClientes] = useState([]);
-  const [clienteSelecionado, setClienteSelecionado] = useState('');
+  const [clienteSelecionado, setClienteSelecionado] = useState({});
   const [aparelho, setAparelho] = useState('');
   const [problema, setProblema] = useState('');
   const [valor, setValor] = useState('');
@@ -55,48 +55,59 @@ useEffect(() => {
   };
 }, []);
 
-  const handleSelecionarCliente = async (valorClienteId) => {
-    setClienteSelecionado(valorClienteId);
-    if (!valorClienteId) {
-      limparCampos(true);
+  const handleSelecionarCliente = async (clienteId) => {
+  if (!clienteId) {
+    limparCampos(true);
+    return;
+  }
+
+  try {
+    const { data, error } = await supabase
+  .from('servicos_tecnico')
+  .select('*')
+  .eq('cliente_id', clienteId)
+  .order('tempo', { ascending: false })
+  .limit(1)
+  .maybeSingle();
+
+    if (error) {
+      console.error(error);
       return;
     }
 
-    try {
-      const { data, error } = await supabase
-        .from('servicos_tecnico')
-        .select('*')
-        .eq('cliente_id', valorClienteId) // Alterado para cliente_id
-        .neq('status', 'Finalizado') 
-        .order('tempo', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    if (data) {
+      setAparelho(data.equipamento || '');
+      setProblema(data.descricao || '');
+      setValor(data.preco?.toString() || '');
+      setCustoPecas(data.valor_pecas?.toString() || '');
+      setGarantia(data.garantia || '90 dias');
+      setAceiteCliente(data.aceite_cliente || false);
 
-      if (data) {
-        setAparelho(data.equipamento || '');
-        setProblema(data.descricao || '');
-        setValor(data.preco?.toString() || '');
-        setCustoPecas(data.valor_pecas?.toString() || '');
-        setGarantia(data.garantia || '90 dias');
-        setAceiteCliente(data.aceite_cliente || false); 
-        
-        if (data.peca_substituida) {
-          setPecas(data.peca_substituida.split(', ').filter(p => p.trim() !== ''));
-        } else {
-          setPecas([]);
-        }
-
-        setHistorico(Array.isArray(data.historico_logs) ? data.historico_logs : []);
+      if (data.peca_substituida) {
+        setPecas(
+          data.peca_substituida
+            .split(', ')
+            .filter(p => p.trim() !== '')
+        );
       } else {
-        limparCampos(false); 
+        setPecas([]);
       }
-    } catch (err) {
-      console.error("Erro ao buscar OS ativa:", err);
+
+      setHistorico(
+        Array.isArray(data.historico_logs)
+          ? data.historico_logs
+          : []
+      );
+    } else {
+      limparCampos(false);
     }
-  };
+  } catch (err) {
+    console.error('Erro ao buscar OS ativa:', err);
+  }
+};
 
   const limparCampos = (limparCliente = true) => {
-    if (limparCliente) setClienteSelecionado('');
+    if (limparCliente) setClienteSelecionado(null);
     setAparelho('');
     setProblema('');
     setValor('');
@@ -131,9 +142,8 @@ useEffect(() => {
       const { error } = await supabase
         .from('servicos_tecnico')
         .update({ historico_logs: novoHistorico })
-        .eq('cliente_id', clienteSelecionado) // Alterado para cliente_id
+        .eq('cliente_id', clienteSelecionado?.value) // Alterado para cliente_id
         .eq('equipamento', aparelho.trim()) // .trim() para evitar erro de restrição
-        .neq('status', 'Finalizado');
 
       if (error) throw error;
     } catch (error) {
@@ -149,7 +159,7 @@ useEffect(() => {
   };
 
   const salvarNovaOS = async (statusFinal) => {
-    if (!clienteSelecionado) return alert("Selecione um Cliente!");
+    if (!clienteSelecionado?.value) return alert("Selecione um Cliente!");
     if (!aparelho.trim()) return alert("Informe o Aparelho/Modelo!");
     
     if (!aceiteCliente && (statusFinal === 'Em_Manutencao' || statusFinal === 'Finalizado')) {
@@ -183,15 +193,15 @@ useEffect(() => {
       const pecasLimpas = pecas.filter(p => p && p.trim() !== "");
       const pecasString = pecasLimpas.join(', ');
       
-      console.log(clienteSelecionado);
+      console.log(clienteSelecionado?.value);
       
       // MANTENDO SEU UPSERT: apenas garanti o trim() no equipamento
       const { error } = await supabase
         .from('servicos_tecnico')
         .upsert([{ 
-          cliente_id: Number(clienteSelecionado), 
+          cliente_id: clienteSelecionado?.value || null, 
 
-          cliente: clientes.find(c => c.id === clienteSelecionado)?.nome || '',
+          cliente: clienteSelecionado?.cliente?.nome || '',
 
           tecnico: user.id,
           equipamento: aparelho.trim(), // Garante que ignore espaços extras
@@ -225,7 +235,7 @@ useEffect(() => {
   return (
     <div className="min-h-screen bg-[#0f172a] text-slate-200 p-8 font-sans">
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
+  
         {/* COLUNA DA ESQUERDA */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-800 shadow-xl">
@@ -237,24 +247,24 @@ useEffect(() => {
                 <label className="text-xs text-slate-500 uppercase font-bold">Cliente *</label>
                 <Select
   placeholder="Selecione o cliente..."
-  
+
   options={clientes.map(c => ({
     value: c.id,
-    label: `${c.nome} || ${c.email}`
+    label: `${c.nome} || ${c.email}`,
+    cliente: c
   }))}
 
-  value={
-    clientes
-      .map(c => ({
-        value: c.id,
-        label: `${c.nome} || ${c.email}`
-      }))
-      .find(opt => opt.value === clienteSelecionado) || null
-  }
+  value={clienteSelecionado}
 
- onChange={(selected) =>
-  handleSelecionarCliente(Number(selected?.value))
-}
+  onChange={(selected) => {
+    setClienteSelecionado(selected || null);
+
+    if (selected) {
+      handleSelecionarCliente(selected.value);
+    }
+  }}
+
+  isClearable
 
   styles={{
     control: (base, state) => ({
@@ -334,25 +344,58 @@ useEffect(() => {
             />
           </div>
 
-          <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-800">
-            <h3 className="text-white font-bold mb-4">🛠 Peças (Obrigatório Adicionar)</h3>
-            <div className="flex gap-2 mb-4">
-              <input 
-                className="flex-1 bg-[#0f172a] border border-slate-700 rounded-lg p-2 text-white outline-none" 
-                placeholder="Ex: Tela LCD..."
-                value={novaPeca} onChange={(e) => setNovaPeca(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && adicionarPeca()}
-              />
-              <button type="button" onClick={adicionarPeca} className="bg-blue-600 hover:bg-blue-700 px-6 rounded-lg font-bold">+</button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {pecas.map((p, i) => (
-                <span key={i} className="bg-blue-900/30 px-3 py-1 rounded-full text-xs border border-blue-500/50 text-blue-200">
-                  {p} <button type="button" onClick={() => setPecas(pecas.filter((_, idx) => idx !== i))} className="text-red-400 ml-1">×</button>
-                </span>
-              ))}
-            </div>
-          </div>
+          <div className="mt-6">
+  <label className="text-xs text-slate-500 uppercase font-bold">
+    Peças Utilizadas
+  </label>
+
+  <textarea
+    className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 h-24 mt-1 text-white outline-none focus:ring-2 focus:ring-blue-500"
+    placeholder="Ex: Tela OLED, Bateria, Flex Carga..."
+    value={novaPeca}
+    onChange={(e) => setNovaPeca(e.target.value)}
+  />
+
+  <button
+    type="button"
+    onClick={() => {
+      if (novaPeca.trim()) {
+        setPecas(
+          novaPeca
+            .split(',')
+            .map(p => p.trim())
+            .filter(p => p !== '')
+        );
+
+        setNovaPeca('');
+      }
+    }}
+    className="mt-3 bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg font-bold text-white transition-all"
+  >
+    SALVAR PEÇAS
+  </button>
+
+  <div className="flex flex-wrap gap-2 mt-4">
+    {pecas.map((p, i) => (
+      <span
+        key={i}
+        className="bg-blue-900/30 px-3 py-2 rounded-full text-xs border border-blue-500/50 text-blue-200"
+      >
+        {p}
+
+        <button
+          type="button"
+          onClick={() =>
+            setPecas(pecas.filter((_, idx) => idx !== i))
+          }
+          className="text-red-400 ml-2"
+        >
+          ×
+        </button>
+      </span>
+    ))}
+  </div>
+</div>
 
           <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-800">
             <h3 className="text-white font-bold mb-4">📸 Fotos</h3>

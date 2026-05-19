@@ -132,7 +132,7 @@ const faturamentoTotal = useMemo(() => {
 
 const gastosPecas = useMemo(() => {
   return (servicos || []).reduce(
-    (acc, s) => acc + (Number(s.custo_pecas) || 0),
+    (acc, s) => acc + (Number(s.valor_pecas) || 0),
     0
   );
 }, [servicos]);
@@ -215,7 +215,7 @@ async function carregarDadosIniciais() {
 
     if (profile?.tipo_perfil !== 'admin') {
       alert('Acesso negado.');
-      router.push('/login');
+      router.push('');
       return;
     }
 
@@ -351,11 +351,33 @@ async function carregarDadosIniciais() {
 }
 
   async function deletarCliente(id) {
-    if (confirm('Excluir cliente?')) {
-      await supabase.from('clientes').delete().eq('id', id);
-      fetchClientes();
-    }
+  if (!confirm('Excluir cliente?')) return;
+
+  await supabase
+    .from('servicos_tecnico')
+    .delete()
+    .eq('cliente_id', id);
+
+  await supabase
+    .from('perfis')
+    .delete()
+    .eq('id', id);
+
+  const { error } = await supabase
+    .from('clientes')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error(error);
+    alert(error.message);
+    return;
   }
+
+  alert('Cliente excluído!');
+  fetchClientes();
+}
+
 
   async function excluirTecnico(id) {
     if (confirm('Excluir técnico?')) {
@@ -380,7 +402,7 @@ async function carregarDadosIniciais() {
 }
 
   const abrirModalNovo = () => {
-    setServicoEditando({ equipamento: '', cliente: '', cliente_id: '', cpf_cnpj: '', endereco: '', status: 'Em Análise', preco: 0, custo_pecas: 0, telefone: '' });
+    setServicoEditando({ equipamento: '', cliente: '', cliente_id: '', cpf_cnpj: '', endereco: '', status: 'Em Análise', preco: 0, valor_pecas: 0, telefone: '' });
     setModalAberto(true);
   };
 
@@ -393,7 +415,7 @@ async function carregarDadosIniciais() {
   ...servicoEditando,
   cliente_id: servicoEditando.cliente_id,
   preco: Number(servicoEditando.preco),
-  custo_pecas: Number(servicoEditando.custo_pecas)
+  valor_pecas: Number(servicoEditando.valor_pecas)
 };
 
   try {
@@ -545,7 +567,7 @@ return (
                     <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-2">Custo com Peças</p>
                     <p className="text-5xl font-black text-red-500 tracking-tighter">R$ {gastosPecas.toFixed(2)}</p>
                   </div>
-                  <p className="text-[9px] text-slate-600 font-bold italic uppercase tracking-widest underline decoration-red-500/30">Lendo coluna: custo_pecas</p>
+                  <p className="text-[9px] text-slate-600 font-bold italic uppercase tracking-widest underline decoration-red-500/30">Lendo coluna: vaor_pecas</p>
                 </div>
 
                 <div className="bg-gradient-to-br from-emerald-600 to-green-800 h-65 p-8 rounded-3xl shadow-2xl flex flex-col justify-center relative overflow-hidden group">
@@ -1881,11 +1903,11 @@ cliente:
               <input
                 type="number"
                 className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white font-bold outline-none focus:border-blue-600"
-                value={servicoEditando.custo_pecas || ''}
+                value={servicoEditando.valor_pecas || ''}
                 onChange={e =>
                   setServicoEditando({
                     ...servicoEditando,
-                    custo_pecas: e.target.value
+                    valor_pecas: e.target.value
                   })
                 }
               />
