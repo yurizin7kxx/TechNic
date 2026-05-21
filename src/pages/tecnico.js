@@ -244,7 +244,7 @@ useEffect(() => {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="text-xs text-slate-500 uppercase font-bold">Cliente *</label>
+                <label className="text-xs text-slate-500 uppercase font-bold">Cliente</label>
                 <Select
   placeholder="Selecione o cliente..."
 
@@ -328,7 +328,7 @@ useEffect(() => {
 />
               </div>
               <div>
-                <label className="text-xs text-slate-500 uppercase font-bold">Aparelho / Modelo *</label>
+                <label className="text-xs text-slate-500 uppercase font-bold">Aparelho / Modelo </label>
                 <input 
                   placeholder="Ex: Samsung S23 Ultra"
                   className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 mt-1 text-white outline-none focus:ring-2 focus:ring-blue-500" 
@@ -336,7 +336,7 @@ useEffect(() => {
                 />
               </div>
             </div>
-            <label className="text-xs text-slate-500 uppercase font-bold">Relato do Problema *</label>
+            <label className="text-xs text-slate-500 uppercase font-bold">Relato do Problema</label>
             <textarea 
               className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 h-24 mt-1 text-white outline-none focus:ring-2 focus:ring-blue-500" 
               placeholder="O que o cliente relatou?" 

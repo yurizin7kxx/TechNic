@@ -8,6 +8,8 @@ import { Fragment } from 'react';
 
 export default function AdminDashboard() {
 
+  
+
   const [clienteSelecionado, setClienteSelecionado] = useState(null);
 
   const [pesquisaServico, setPesquisaServico] = useState('');
@@ -96,11 +98,11 @@ const salvarDiagnostico = async () => {
     const { error } = await supabase
       .from('servicos_tecnico')
       .update({
-        diagnostico: orcamentoData.diagnostico,
+        peca_substituida: orcamentoData.diagnostico,
         prazo: orcamentoData.prazo,
         preco: Number(orcamentoData.valorTotal)
       })
-      .eq('id', orcamentoData.servicoId);
+      .eq('id', Number(orcamentoData.servicoId))
 
     if (error) throw error;
 
@@ -164,13 +166,14 @@ const faturamentoSemanal = useMemo(() => {
 
   const [clientes, setClientes] = useState([]);
 
-  const clientesOptions = useMemo(() =>
+ const clientesOptions = useMemo(() =>
   clientes.map(c => ({
     value: c.id,
-    label: c.nome_completo || c.nome || c.email || c.cliente?.email || `ID: ${c.id.substring(0,5)}`
+    label: c.nome,
+    cliente: c
   })),
-  [clientes]);
-
+  [clientes]
+);
 
   const [novoCliente, setNovoCliente] = useState({ nome: '', cpf_cnpj: '', email: '', telefone: '', endereco: '' });
   const [statusCliente, setStatusCliente] = useState('');
@@ -186,6 +189,29 @@ const faturamentoSemanal = useMemo(() => {
   });
 
   useEffect(() => { checkAdmin(); }, []);
+
+  useEffect(() => {
+
+  if (!clienteSelecionado) return;
+
+  const cliente = clientes.find(
+    (c) => String(c.id) === String(clienteSelecionado.value)
+  );
+
+  if (!cliente) return;
+
+  setServicoEditando((prev) => ({
+    ...prev,
+
+    cliente_id: cliente.id,
+    cliente: cliente.nome || '',
+
+    telefone: cliente.telefone || '',
+    cpf_cnpj: cliente.cpf_cnpj || '',
+    endereco: cliente.endereco || ''
+  }));
+
+}, [clienteSelecionado, clientes]);
 
   useEffect(() => {
   carregarDadosIniciais();
@@ -224,13 +250,16 @@ async function carregarDadosIniciais() {
   }
 
   async function fetchDadosReais() {
-    const { data } = await supabase
-      .from('servicos_tecnico')
-      .select('*')
-      .order('tempo', { ascending: false });
 
-    setServicos(data || []);
-  }
+  const { data, error } = await supabase
+    .from('servicos_tecnico')
+    .select('*')
+    .order('tempo', { ascending: false });
+
+  console.log(data);
+
+  setServicos(data || []);
+}
 
   async function fetchTecnicos() {
     const { data } = await supabase
@@ -388,14 +417,21 @@ async function carregarDadosIniciais() {
 
   function editarServico(servico) {
 
-  setClienteSelecionado({
-    value: servico.cliente_id,
-    label: servico.cliente
-  });
+  const cliente = clientes.find(
+    (c) => String(c.id) === String(servico.cliente_id)
+  );
+
+  setClienteSelecionado(
+    cliente
+      ? {
+          value: cliente.id,
+          label: cliente.nome
+        }
+      : null
+  );
 
   setServicoEditando({
-    ...servico,
-    cliente_id: servico.cliente_id
+    ...servico
   });
 
   setModalAberto(true);
@@ -444,12 +480,34 @@ async function carregarDadosIniciais() {
   }
 }
 
-  async function excluirServico(id) {
-    if (confirm('Excluir serviço?')) {
-      await supabase.from('servicos_tecnico').delete().eq('id', id);
-      fetchDadosReais();
-    }
+ async function excluirServico(id) {
+
+  if (!confirm('Excluir serviço?')) return;
+
+  try {
+
+    const { data, error } = await supabase
+      .from('servicos_tecnico')
+      .delete()
+      .eq('id', Number(id))
+      .select();
+
+    console.log('DELETE:', data);
+    console.log('ERROR:', error);
+
+    if (error) throw error;
+
+    setServicos((prev) =>
+      prev.filter((s) => String(s.id) !== String(id))
+    );
+
+    alert('✅ Excluído');
+
+  } catch (err) {
+    console.error(err);
+    alert(err.message);
   }
+}
 
   function enviarOrcamentoWhatsApp() {
     const id = Number(orcamentoData.servicoId);
@@ -1657,8 +1715,7 @@ return (
                             </span>
 
                             <p className="text-sm text-emerald-400 font-medium">
-                              {s.logs ||
-                                s.nota_tecnica ||
+                              {s.peca_substituida ||
                                 'Nenhuma nota registrada.'}
                             </p>
                           </div>
@@ -1745,24 +1802,17 @@ return (
 
   setClienteSelecionado(selected);
 
-  const cliente = clientes.find(
-    (c) => String(c.id) === String(selected.value)
-  );
-
-  console.log(cliente);
+  const cliente = selected.cliente;
 
   setServicoEditando((prev) => ({
     ...prev,
-cliente_id: selected.value,
-cliente:
-      cliente?.nome_completo ||
-      cliente?.nome ||
-      selected.label,
-
-    telefone: cliente?.telefone || '',
-    cpf_cnpj: cliente?.cpf_cnpj || '',
-    endereco: cliente?.endereco || ''
+    cliente_id: cliente.id,
+    cliente: cliente.nome,
+    telefone: cliente.telefone || '',
+    cpf_cnpj: cliente.cpf_cnpj || '',
+    endereco: cliente.endereco || ''
   }));
+
 }}
 
                 styles={{
