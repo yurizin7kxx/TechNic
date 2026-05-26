@@ -18,6 +18,9 @@ export default function PainelTecnicoEntrada() {
   const [fotos, setFotos] = useState([]); 
   const [arquivosFotos, setArquivosFotos] = useState([]); 
   const [aceiteCliente, setAceiteCliente] = useState(false);
+  const [cpfCnpj, setCpfCnpj] = useState('');
+  const [endereco, setEndereco] = useState('');
+  const [telefone, setTelefone] = useState('');
 
   async function carregarClientes() {
   const { data, error } = await supabase
@@ -233,8 +236,9 @@ useEffect(() => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-slate-200 p-8 font-sans">
+    <div className="min-h-screen bg-[#0f172a] text-slate-400 p-10 font-sans">
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
   
         {/* COLUNA DA ESQUERDA */}
         <div className="lg:col-span-2 space-y-6">
@@ -242,7 +246,7 @@ useEffect(() => {
             <h2 className="text-xl font-bold text-white mb-6 border-b border-slate-700 pb-2 flex items-center gap-2">
               📝 Entrada de Serviço
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="flex flex-col gap-2">
               <div>
                 <label className="text-xs text-slate-500 uppercase font-bold">Cliente</label>
                 <Select
@@ -257,12 +261,22 @@ useEffect(() => {
   value={clienteSelecionado}
 
   onChange={(selected) => {
-    setClienteSelecionado(selected || null);
+  setClienteSelecionado(selected || null);
 
-    if (selected) {
-      handleSelecionarCliente(selected.value);
-    }
-  }}
+  if (selected?.cliente) {
+    setCpfCnpj(selected.cliente['cpf_cnpj'] || '');
+    setEndereco(selected.cliente.endereco || '');
+    setTelefone(selected.cliente.telefone || '');
+  } else {
+    setCpfCnpj('');
+    setEndereco('');
+    setTelefone('');
+  }
+
+  if (selected) {
+    handleSelecionarCliente(selected.value);
+  }
+}}
 
   isClearable
 
@@ -326,7 +340,50 @@ useEffect(() => {
     }),
   }}
 />
+
               </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+
+  <div>
+    <label className="text-xs text-slate-500 uppercase font-bold">
+      CPF/CNPJ
+    </label>
+
+    <input
+      type="text"
+      value={cpfCnpj}
+      readOnly
+      className="w-full bg-[#0f172a] border border-slate-800 rounded-lg p-4 text-lg mt-1 text-white"
+    />
+  </div>
+
+  <div>
+    <label className="text-xs text-slate-500 uppercase font-bold">
+      Telefone
+    </label>
+
+    <input
+      type="text"
+      value={telefone}
+      readOnly
+      className="w-full bg-[#0f172a] border border-slate-900 rounded-lg p-4 text-lg mt-1 text-white"
+    />
+  </div>
+
+  <div className="md:col-span-2">
+  <label className="text-xs text-slate-500 uppercase font-bold">
+    Endereço
+  </label>
+
+    <input
+      type="text"
+      value={endereco}
+      readOnly
+      className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-4 text-lg mt-1 text-white"
+    />
+  </div>
+
+</div>
               <div>
                 <label className="text-xs text-slate-500 uppercase font-bold">Aparelho / Modelo </label>
                 <input 
@@ -335,6 +392,7 @@ useEffect(() => {
                   value={aparelho} onChange={(e) => setAparelho(e.target.value)} 
                 />
               </div>
+              
             </div>
             <label className="text-xs text-slate-500 uppercase font-bold">Relato do Problema</label>
             <textarea 
