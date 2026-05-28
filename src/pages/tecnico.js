@@ -21,6 +21,8 @@ export default function PainelTecnicoEntrada() {
   const [cpfCnpj, setCpfCnpj] = useState('');
   const [endereco, setEndereco] = useState('');
   const [telefone, setTelefone] = useState('');
+  const [previsaoEntrega, setPrevisaoEntrega] = useState('');
+  const [statusOS, setStatusOS] = useState('Em_Analise');
 
   async function carregarClientes() {
   const { data, error } = await supabase
@@ -84,6 +86,7 @@ useEffect(() => {
       setValor(data.preco?.toString() || '');
       setCustoPecas(data.valor_pecas?.toString() || '');
       setGarantia(data.garantia || '90 dias');
+      setPrevisaoEntrega(data.previsao_entrega || '');
       setAceiteCliente(data.aceite_cliente || false);
 
       if (data.peca_substituida) {
@@ -208,13 +211,14 @@ useEffect(() => {
 
           tecnico: user.id,
           equipamento: aparelho.trim(), // Garante que ignore espaços extras
-          status: statusFinal,
+          status: statusOS,
           descricao: problema,
           preco: parseFloat(valor), 
           valor_pecas: parseFloat(custoPecas),
           peca_substituida: pecasString,
           garantia: garantia,
           aceite_cliente: aceiteCliente,
+          previsao_entrega: previsaoEntrega,
           tempo: new Date().toISOString(),
           historico_logs: historicoLimpo,
           fotos_url: linksFotos 
@@ -507,6 +511,51 @@ useEffect(() => {
                 <option value="1 ano">1 ano</option>
               </select>
             </div>
+
+            <div className="mb-4">
+  <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-widest">
+    Previsão de Entrega
+  </label>
+
+  <input
+    type="datetime-local"
+    value={previsaoEntrega}
+    onChange={(e) => setPrevisaoEntrega(e.target.value)}
+    className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 text-white outline-none focus:ring-2 focus:ring-blue-500"
+  />
+</div>
+
+            <div className="mb-4">
+  <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-widest">
+    Status da OS
+  </label>
+
+  <select
+    value={statusOS}
+    onChange={(e) => setStatusOS(e.target.value)}
+    className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 text-white outline-none focus:ring-2 focus:ring-blue-500"
+  >
+    <option value="Em_Analise">
+      Em Análise
+    </option>
+
+    <option value="Aguardando_Aprovacao">
+      Aguardando Aprovação
+    </option>
+
+    <option value="Em_Manutencao">
+      Em Manutenção
+    </option>
+
+    <option value="Pronto_Aguardando_Retirada">
+      Pronto - Aguardando Retirada
+    </option>
+
+    <option value="Finalizado">
+      Finalizado
+    </option>
+  </select>
+</div>
 
             <div 
                 className={`mb-6 p-4 rounded-lg border-2 transition-all flex items-center gap-3 ${aceiteCliente ? 'bg-emerald-900/40 border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)] animate-pulse' : 'bg-slate-800 border-slate-700 opacity-50'}`}

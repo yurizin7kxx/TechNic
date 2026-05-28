@@ -13,7 +13,11 @@ import {
   Image as ImageIcon,
   ThumbsUp,
   AlertCircle,
-  XCircle
+  XCircle,
+  CalendarDays,
+  BadgeCheck,
+  TimerReset,
+  CreditCard
 } from 'lucide-react';
 
 export default function DetalhesOSPage() {
@@ -24,48 +28,45 @@ export default function DetalhesOSPage() {
 
   async function carregarDadosOS() {
     setLoading(true);
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      console.log('USER LOGADO:', user);
-      if (!user) { 
-        setLoading(false); 
-        return; 
+
+      if (!user) {
+        setLoading(false);
+        return;
       }
 
-      // BUSCA OTIMIZADA: Usando o ID do usuário logado diretamente na coluna cliente_id
-      // Busca o cliente pelo email do usuário logado
-const { data: cliente } = await supabase
-  .from('clientes')
-  .select('id')
-  .eq('email', user.email)
-  .single();
-  console.log('CLIENTE ENCONTRADO:', cliente);
+      const { data: cliente } = await supabase
+        .from('clientes')
+        .select('id')
+        .eq('email', user.email)
+        .single();
 
-if (!cliente) {
-  setLoading(false);
-  return;
-}
+      if (!cliente) {
+        setLoading(false);
+        return;
+      }
 
-// Agora busca a OS usando o ID REAL do cliente
-const { data, error } = await supabase
-  .from('servicos_tecnico')
-  .select('*')
-  .eq('cliente_id', cliente.id)
-  .order('id', { ascending: false })
-  .limit(1)
-  .maybeSingle();
-  console.log('OS ENCONTRADA:', data);
-  console.log('ERRO OS:', error);
-      
+      const { data, error } = await supabase
+        .from('servicos_tecnico')
+        .select('*')
+        .eq('cliente_id', cliente.id)
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+
       if (data) {
         let logsFormatados = [];
+
         if (Array.isArray(data.historico_logs)) {
           logsFormatados = data.historico_logs;
         } else if (data.historico_logs) {
           logsFormatados = [String(data.historico_logs)];
         }
 
-        // Buscamos o nome do perfil apenas para exibição visual na tela
         const { data: perfil } = await supabase
           .from('perfis')
           .select('nome_completo')
@@ -75,20 +76,29 @@ const { data, error } = await supabase
         setOs({
           id: data.id,
           aparelho: data.equipamento || "Dispositivo",
-          cliente_nome: perfil?.nome_completo || user.email, // Exibe o nome do perfil
+          cliente_nome: perfil?.nome_completo || user.email,
           status: data.status,
           valor_total: Number(data.preco) || 0,
           problema_identificado: data.descricao,
           tecnico: "Equipe TechNic",
           data_entrada: data.tempo,
-          pecas_usadas: data.peca_substituida ? data.peca_substituida.split(', ') : [],
+
+          previsao_entrega: data.previsao_entrega,
+          garantia: data.garantia || '90 dias',
+
+          pecas_usadas: data.peca_substituida
+            ? data.peca_substituida.split(', ')
+            : [],
           historico_logs: logsFormatados,
-          fotos_url: Array.isArray(data.fotos_url) ? data.fotos_url : [],
+          fotos_url: Array.isArray(data.fotos_url)
+            ? data.fotos_url
+            : [],
           aceite_cliente: data.aceite_cliente || false
         });
       }
+
     } catch (err) {
-      console.error("Erro inesperado:", err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -100,7 +110,9 @@ const { data, error } = await supabase
 
   const confirmarAceite = async () => {
     if (!os?.id) return;
+
     setEnviandoAceite(true);
+
     try {
       const { error } = await supabase
         .from('servicos_tecnico')
@@ -108,10 +120,12 @@ const { data, error } = await supabase
         .eq('id', os.id);
 
       if (error) throw error;
-      alert("✅ Orçamento aprovado! Iniciaremos o serviço.");
+
+      alert('✅ Orçamento aprovado!');
       carregarDadosOS();
+
     } catch (error) {
-      alert("Erro: " + error.message);
+      alert(error.message);
     } finally {
       setEnviandoAceite(false);
     }
@@ -119,226 +133,385 @@ const { data, error } = await supabase
 
   const recusarOrcamento = async () => {
     if (!os?.id) return;
-    const confirmou = confirm("Deseja realmente recusar este orçamento? O técnico será notificado.");
+
+    const confirmou = confirm(
+      'Deseja realmente recusar este orçamento?'
+    );
+
     if (!confirmou) return;
 
     setEnviandoRecusa(true);
+
     try {
       const { error } = await supabase
         .from('servicos_tecnico')
-        .update({ 
-            aceite_cliente: false,
-            status: 'Recusado'
+        .update({
+          aceite_cliente: false,
+          status: 'Recusado'
         })
         .eq('id', os.id);
 
       if (error) throw error;
-      alert("⚠️ Orçamento recusado. Entre em contato para combinar a retirada.");
+
+      alert('⚠️ Orçamento recusado.');
       carregarDadosOS();
+
     } catch (error) {
-      alert("Erro: " + error.message);
+      alert(error.message);
     } finally {
       setEnviandoRecusa(false);
     }
   };
 
-  if (loading) return (
-    <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center">
-      <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
-
-  if (!os) return (
-    <div className="min-h-screen bg-[#020617] flex items-center justify-center p-6 text-center">
-      <div className="max-w-md p-12 rounded-[40px] bg-slate-900/50 border border-white/5 backdrop-blur-3xl">
-        <Smartphone className="text-blue-500 mx-auto mb-6" size={32} />
-        <h2 className="text-2xl font-bold text-white mb-8">Sem ordens ativas</h2>
-        <Link href="/" className="bg-white text-black px-10 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-blue-500 hover:text-white transition-all">Voltar</Link>
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#020617] flex items-center justify-center">
+        <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
       </div>
-    </div>
-  );
+    );
+  }
+
+  if (!os) {
+    return (
+      <div className="min-h-screen bg-[#020617] flex items-center justify-center p-6">
+        <div className="max-w-md bg-slate-900/50 border border-white/5 p-10 rounded-[40px] text-center">
+          <Smartphone className="mx-auto text-blue-500 mb-5" />
+          <h2 className="text-2xl font-bold text-white mb-6">
+            Nenhuma OS ativa
+          </h2>
+
+          <Link
+            href="/"
+            className="bg-white text-black px-8 py-4 rounded-2xl font-bold"
+          >
+            Voltar
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-300 font-sans pb-24">
-      {/* ... (resto do seu HTML/JSX permanece igual) ... */}
+    <div className="min-h-screen bg-[#020617] text-slate-300 pb-24">
+
+      {/* NAVBAR */}
       <nav className="sticky top-0 z-50 bg-[#020617]/80 backdrop-blur-2xl border-b border-white/5">
         <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
-          <Link href="/" className="p-2 hover:bg-white/5 rounded-full transition-colors">
+
+          <Link
+            href="/"
+            className="p-2 hover:bg-white/5 rounded-full"
+          >
             <ArrowLeft size={20} className="text-slate-400" />
           </Link>
+
           <div className="text-right">
-            <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-1">Status</p>
-            <p className="text-xs font-bold text-white uppercase">{os.status?.replace(/_/g, ' ')}</p>
+            <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-1">
+              Status Atual
+            </p>
+
+            <div className="px-4 py-2 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-black uppercase tracking-widest">
+              {os.status?.replace(/_/g, ' ')}
+            </div>
           </div>
         </div>
       </nav>
 
       <main className="max-w-6xl mx-auto px-6 mt-10">
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+          {/* ESQUERDA */}
           <div className="lg:col-span-8 space-y-8">
+
+            {/* HERO */}
             <div className="relative overflow-hidden rounded-[48px] bg-slate-900 border border-white/5 p-8 md:p-12 shadow-2xl">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 blur-[100px] -mr-32 -mt-32" />
-              <div className="relative z-10 space-y-6">
+
+              <div className="absolute top-0 right-0 w-72 h-72 bg-blue-600/10 blur-[120px]" />
+
+              <div className="relative z-10 space-y-8">
+
                 <div>
-                  <h2 className="text-blue-500 font-mono text-[11px] font-bold uppercase tracking-[0.5em] mb-4">Relatório de Dispositivo</h2>
-                  <h1 className="text-5xl md:text-6xl font-black text-white tracking-tighter leading-[0.9]">{os.aparelho}</h1>
+                  <h2 className="text-blue-500 font-mono text-[11px] uppercase tracking-[0.5em] mb-4">
+                    Relatório do Dispositivo
+                  </h2>
+
+                  <h1 className="text-5xl md:text-6xl font-black text-white leading-[0.9] tracking-tighter">
+                    {os.aparelho}
+                  </h1>
                 </div>
-                <div className="flex flex-wrap gap-4 text-sm">
-                  <div className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-2xl border border-white/5">
+
+                <div className="flex flex-wrap gap-4">
+
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/5 border border-white/5">
                     <User size={16} className="text-blue-400" />
-                    <span>{os.cliente_nome}</span>
+                    <span className="text-sm">
+                      {os.cliente_nome}
+                    </span>
                   </div>
-                  <div
-  className={`flex items-center gap-2 px-4 py-2 rounded-2xl border ${
-    os.status === 'Finalizado'
-      ? 'bg-blue-500/10 border-blue-500/20 text-blue-400'
-      : os.status === 'Recusado'
-      ? 'bg-red-500/10 border-red-500/20 text-red-400'
-      : os.aceite_cliente
-      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-      : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
-  }`}
->
-  {os.status === 'Finalizado' ? (
-    <CheckCircle2 size={16} />
-  ) : os.status === 'Recusado' ? (
-    <XCircle size={16} />
-  ) : os.aceite_cliente ? (
-    <ShieldCheck size={16} />
-  ) : (
-    <AlertCircle size={16} />
-  )}
 
-  <span className="font-bold">
-    {os.status === 'Finalizado'
-      ? 'Serviço Concluído'
-      : os.status === 'Recusado'
-      ? 'Recusado'
-      : os.aceite_cliente
-      ? 'Autorizado'
-      : 'Aguardando Aprovação'}
-  </span>
-</div>
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                    <ShieldCheck size={16} />
+                    <span className="text-sm font-bold">
+                      {os.aceite_cliente
+                        ? 'Autorizado'
+                        : 'Aguardando Aprovação'}
+                    </span>
+                  </div>
+
                 </div>
+
+                {/* INFORMAÇÕES EXTRAS */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                  <div className="bg-white/5 border border-white/5 rounded-3xl p-5">
+                    <CalendarDays className="text-blue-500 mb-3" size={20} />
+                    <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-1">
+                      Entrada
+                    </p>
+                    <p className="text-sm text-white font-bold">
+                      {os.data_entrada || 'Hoje'}
+                    </p>
+                  </div>
+
+                  <div className="bg-white/5 border border-white/5 rounded-3xl p-5">
+                    <TimerReset className="text-blue-500 mb-3" size={20} />
+                    <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-1">
+                      Previsão
+                    </p>
+                    <p className="text-sm text-white font-bold">
+  {os.previsao_entrega
+    ? new Date(os.previsao_entrega).toLocaleString('pt-BR')
+    : 'Não definida'}
+</p>
+                  </div>
+
+                  <div className="bg-white/5 border border-white/5 rounded-3xl p-5">
+                    <BadgeCheck className="text-blue-500 mb-3" size={20} />
+                    <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-1">
+                      Garantia
+                    </p>
+                    <p className="text-sm text-white font-bold">
+  {os.garantia || 'Sem garantia'}
+</p>
+                  </div>
+
+                </div>
+
               </div>
             </div>
 
+            {/* CARDS */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+
               <div className="bg-slate-900/50 p-10 rounded-[40px] border border-white/5">
-                <Wrench size={24} className="text-blue-500 mb-6" />
-                <h3 className="text-white font-bold text-lg mb-4">Laudo Técnico</h3>
-                <p className="text-slate-400 leading-relaxed italic">"{os.problema_identificado || "Em análise..."}"</p>
+                <Wrench className="text-blue-500 mb-6" size={24} />
+
+                <h3 className="text-white font-bold text-lg mb-4">
+                  Laudo Técnico
+                </h3>
+
+                <p className="text-slate-400 italic leading-relaxed">
+                  "{os.problema_identificado || 'Em análise...'}"
+                </p>
               </div>
 
               <div className="bg-slate-900/50 p-10 rounded-[40px] border border-white/5">
-                <CheckCircle2 size={24} className="text-emerald-500 mb-6" />
-                <h3 className="text-white font-bold text-lg mb-4">Lista de Reparos</h3>
-                <div className="space-y-3">
-                  {os.pecas_usadas.length > 0 ? os.pecas_usadas.map((peca, i) => (
-                    <div key={i} className="flex items-center gap-3 text-sm text-slate-400">
-                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" /> {peca}
-                    </div>
-                  )) : <p className="text-sm text-slate-500">Mão de obra inclusa.</p>}
+                <CheckCircle2
+                  className="text-emerald-500 mb-6"
+                  size={24}
+                />
+
+                <h3 className="text-white font-bold text-lg mb-4">
+                  Lista de Reparos
+                </h3>
+
+                <div className="space-y-4">
+
+                  {os.pecas_usadas.length > 0 ? (
+                    os.pecas_usadas.map((peca, i) => (
+                      <div
+                        key={i}
+                        className="bg-white/5 rounded-2xl p-4 border border-white/5"
+                      >
+                        <p className="text-white text-sm font-semibold">
+                          {peca}
+                        </p>
+
+                        <p className="text-xs text-slate-500 mt-1">
+                          Garantia inclusa de 90 dias
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-slate-500">
+                      Mão de obra inclusa.
+                    </p>
+                  )}
+
                 </div>
               </div>
             </div>
 
+            {/* GALERIA */}
             {os.fotos_url.length > 0 && (
               <div className="bg-slate-900/50 p-10 rounded-[40px] border border-white/5">
+
                 <h3 className="text-white font-bold text-lg mb-8 flex items-center gap-3">
-                  <ImageIcon size={20} className="text-blue-500" /> Galeria de Evidências
+                  <ImageIcon size={20} className="text-blue-500" />
+                  Evidências do Reparo
                 </h3>
+
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+
                   {os.fotos_url.map((path, i) => (
-                    <div key={i} className="aspect-square rounded-3xl bg-black overflow-hidden border border-white/5">
-                      <img 
-                        src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/os-fotos/${path}`} 
-                        className="w-full h-full object-cover" 
-                        alt="Reparo"
-                        onError={(e) => e.currentTarget.style.display = 'none'}
+                    <div
+                      key={i}
+                      className="aspect-square rounded-3xl overflow-hidden border border-white/5"
+                    >
+                      <img
+                        src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/os-fotos/${path}`}
+                        className="w-full h-full object-cover"
+                        alt="Foto do reparo"
                       />
                     </div>
                   ))}
+
                 </div>
               </div>
             )}
           </div>
 
+          {/* DIREITA */}
           <div className="lg:col-span-4 space-y-6">
-            <div className="bg-slate-900 p-8 rounded-[40px] border border-white/10 shadow-xl">
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Total do Orçamento</span>
-                <div className="flex items-baseline gap-1 text-white mb-6">
-                   <span className="text-lg font-medium opacity-50">R$</span>
-                   <span className="text-5xl font-black tracking-tighter">{os.valor_total.toFixed(2)}</span>
+
+            {/* ORÇAMENTO */}
+            <div className="bg-slate-900 p-8 rounded-[40px] border border-white/10">
+
+              <span className="text-[10px] uppercase tracking-widest text-slate-500 block mb-2">
+                Total do orçamento
+              </span>
+
+              <div className="flex items-end gap-1 mb-6">
+                <span className="text-white/50">R$</span>
+
+                <span className="text-5xl font-black text-white tracking-tighter">
+                  {os.valor_total.toFixed(2)}
+                </span>
+              </div>
+
+              <div className="bg-white/5 rounded-2xl border border-white/5 p-4 mb-6">
+                <div className="flex items-center gap-3 text-sm text-slate-300">
+                  <CreditCard size={18} className="text-blue-400" />
+                  PIX • Cartão • Dinheiro
+                </div>
+              </div>
+
+              {!os.aceite_cliente &&
+              os.status !== 'Recusado' &&
+              os.status !== 'Finalizado' ? (
+
+                <div className="space-y-4">
+
+                  <button
+                    onClick={confirmarAceite}
+                    disabled={enviandoAceite}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-5 rounded-3xl font-black text-xs uppercase tracking-[0.2em]"
+                  >
+                    {enviandoAceite
+                      ? 'Processando...'
+                      : 'Aprovar Agora'}
+                  </button>
+
+                  <button
+                    onClick={recusarOrcamento}
+                    disabled={enviandoRecusa}
+                    className="w-full border border-red-500/20 text-red-500 py-4 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em]"
+                  >
+                    {enviandoRecusa
+                      ? 'Cancelando...'
+                      : 'Não aceito o serviço'}
+                  </button>
+
                 </div>
 
-                {!os.aceite_cliente &&
-os.status !== 'Recusado' &&
-os.status !== 'Finalizado' ? (
-                  <div className="space-y-4">
-                    <button 
-                      onClick={confirmarAceite}
-                      disabled={enviandoAceite || enviandoRecusa}
-                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-5 rounded-3xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-lg shadow-emerald-900/20 disabled:opacity-50"
-                    >
-                      {enviandoAceite ? 'Processando...' : <><ThumbsUp size={18} /> Aprovar Agora</>}
-                    </button>
+              ) : (
 
-                    <button 
-                      onClick={recusarOrcamento}
-                      disabled={enviandoAceite || enviandoRecusa}
-                      className="w-full bg-transparent border border-red-500/20 hover:border-red-500/50 text-red-500 py-4 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] transition-all disabled:opacity-50"
-                    >
-                      {enviandoRecusa ? 'Cancelando...' : 'Não aceito o serviço'}
-                    </button>
-                  </div>
-                ) : (
-                  <div
-  className={`w-full py-4 rounded-3xl text-center text-[10px] font-black uppercase tracking-widest border ${
-    os.status === 'Finalizado'
-      ? 'bg-blue-500/10 border-blue-500/20 text-blue-400'
-      : os.status === 'Recusado'
-      ? 'bg-red-500/10 border-red-500/20 text-red-400'
-      : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-  }`}
->
-  {os.status === 'Finalizado'
-    ? 'Serviço Concluído'
-    : os.status === 'Recusado'
-    ? 'Orçamento Recusado'
-    : 'Orçamento Aprovado'}
-</div>  
-                )}
+                <div className="w-full py-4 rounded-3xl text-center bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] uppercase tracking-widest font-black">
+                  {os.status === 'Finalizado'
+                    ? 'Serviço Concluído'
+                    : os.status === 'Recusado'
+                    ? 'Orçamento Recusado'
+                    : 'Orçamento Aprovado'}
+                </div>
+
+              )}
+
             </div>
 
-            <div className="bg-blue-600 p-8 rounded-[40px] shadow-xl shadow-blue-600/10 text-white">
-              <h3 className="font-bold mb-1">Dúvidas?</h3>
-              <p className="text-blue-100 text-xs mb-6 opacity-80">Fale com o técnico responsável.</p>
-              <button className="w-full bg-white text-blue-600 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-50 transition-all">
-                <MessageCircle size={18} /> Chamar no Whats
-              </button>
-            </div>
+            {/* CONTATO */}
+            <div className="bg-blue-600 p-8 rounded-[40px] text-white">
 
-            <div className="bg-slate-900/50 p-8 rounded-[40px] border border-white/5">
-              <h3 className="text-white font-bold text-xs uppercase tracking-widest mb-8 flex items-center justify-between">
-                Evolução <Clock size={14} />
+              <h3 className="font-bold mb-1">
+                Dúvidas?
               </h3>
+
+              <p className="text-blue-100 text-xs opacity-80 mb-6">
+                Fale com o técnico responsável.
+              </p>
+
+              <button className="w-full bg-white text-blue-600 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2">
+                <MessageCircle size={18} />
+                Chamar no Whats
+              </button>
+
+            </div>
+
+            {/* EVOLUÇÃO */}
+            <div className="bg-slate-900/50 p-8 rounded-[40px] border border-white/5">
+
+              <h3 className="text-white font-bold text-xs uppercase tracking-widest mb-8 flex items-center justify-between">
+                Evolução
+                <Clock size={14} />
+              </h3>
+
               <div className="space-y-8">
+
                 {os.historico_logs.length > 0 ? (
                   [...os.historico_logs].reverse().map((log, i) => (
+
                     <div key={i} className="flex gap-4 relative">
-                      {i !== os.historico_logs.length - 1 && <div className="absolute left-[9px] top-6 w-[1px] h-full bg-white/10" />}
+
+                      {i !== os.historico_logs.length - 1 && (
+                        <div className="absolute left-[9px] top-6 w-[1px] h-full bg-white/10" />
+                      )}
+
                       <div className="w-[18px] h-[18px] rounded-full border-2 border-blue-500 bg-[#020617] flex items-center justify-center shrink-0 z-10">
                         <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
                       </div>
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-slate-300">{log}</p>
+
+                      <div>
+                        <p className="text-xs font-medium text-slate-300">
+                          {log}
+                        </p>
+
+                        <p className="text-[10px] text-slate-500 mt-1">
+                          Atualizado recentemente
+                        </p>
                       </div>
+
                     </div>
+
                   ))
-                ) : <p className="text-xs text-slate-600">Sem registros.</p>}
+                ) : (
+                  <p className="text-xs text-slate-600">
+                    Sem registros.
+                  </p>
+                )}
+
               </div>
             </div>
+
           </div>
         </div>
       </main>
