@@ -5,10 +5,27 @@ import Select from 'react-select';
 import { useRouter } from 'next/router';
 import { supabase } from '../../public/lib/supabase';
 import { Fragment } from 'react';
+import { toast } from 'sonner';
+import Swal from 'sweetalert2';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid
+} from 'recharts';
 
 export default function AdminDashboard() {
 
-  
+  const dados = [
+  { nome: 'Seg', valor: 1200 },
+  { nome: 'Ter', valor: 900 },
+  { nome: 'Qua', valor: 2100 },
+  { nome: 'Qui', valor: 1700 },
+  { nome: 'Sex', valor: 3200 },
+];
 
   const [clienteSelecionado, setClienteSelecionado] = useState(null);
 
@@ -106,12 +123,12 @@ const salvarDiagnostico = async () => {
 
     if (error) throw error;
 
-    alert('Diagnóstico salvo!');
+    toast.warning('Diagnóstico salvo!');
     fetchDadosReais();
 
   } catch (err) {
     console.error(err);
-    alert('Erro ao salvar diagnóstico');
+    toast.warning('Erro ao salvar diagnóstico');
   }
 };
 
@@ -240,7 +257,7 @@ async function carregarDadosIniciais() {
       .single();
 
     if (profile?.tipo_perfil !== 'admin') {
-      alert('Acesso negado.');
+      toast.warning('Acesso negado.');
       router.push('');
       return;
     }
@@ -380,7 +397,32 @@ async function carregarDadosIniciais() {
 }
 
   async function deletarCliente(id) {
-  if (!confirm('Excluir cliente?')) return;
+
+  const confirmou = await Swal.fire({
+    title: 'Excluir cliente?',
+    text: 'Todos os serviços desse cliente também serão removidos.',
+    iconHtml: '⚡',
+
+    showClass: {
+    popup: 'animate__animated animate__zoomIn'
+},
+    hideClass: {
+  popup: 'animate__animated animate__zoomOut'
+},
+
+    showCancelButton: true,
+
+    confirmButtonText: 'Sim, excluir',
+    cancelButtonText: 'Cancelar',
+
+    background: '#0f172a',
+    color: '#fff',
+
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#334155',
+  });
+
+  if (!confirmou.isConfirmed) return;
 
   await supabase
     .from('servicos_tecnico')
@@ -399,21 +441,44 @@ async function carregarDadosIniciais() {
 
   if (error) {
     console.error(error);
-    alert(error.message);
+    toast.error(error.message);
     return;
   }
 
-  alert('Cliente excluído!');
+  toast.success('Cliente excluído!');
   fetchClientes();
 }
 
 
-  async function excluirTecnico(id) {
-    if (confirm('Excluir técnico?')) {
-      await supabase.from('perfis').delete().eq('id', id);
-      fetchTecnicos();
-    }
-  }
+async function excluirTecnico(id) {
+
+  const confirmou = await Swal.fire({
+    title: 'Excluir técnico?',
+    text: 'Essa ação não poderá ser desfeita.',
+    icon: 'warning',
+
+    showCancelButton: true,
+
+    confirmButtonText: 'Sim, excluir',
+    cancelButtonText: 'Cancelar',
+
+    background: '#0f172a',
+    color: '#fff',
+
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#334155',
+  });
+
+  if (!confirmou.isConfirmed) return;
+
+  await supabase
+    .from('perfis')
+    .delete()
+    .eq('id', id);
+
+  toast.success('Técnico excluído!');
+  fetchTecnicos();
+}
 
   function editarServico(servico) {
 
@@ -470,19 +535,46 @@ async function carregarDadosIniciais() {
 
     if (error) throw error;
 
-    alert('✅ Serviço salvo!');
+    toast.warning('✅ Serviço salvo!');
     setModalAberto(false);
     fetchDadosReais();
 
   } catch (err) {
     console.error('ERRO AO SALVAR:', err);
-    alert('❌ Erro: ' + err.message);
+    toast.warning('❌ Erro: ' + err.message);
   }
 }
 
  async function excluirServico(id) {
 
-  if (!confirm('Excluir serviço?')) return;
+  const result = await Swal.fire({
+  title: 'Excluir cliente?',
+  text: 'Todos os serviços desse cliente também serão removidos.',
+  icon: 'warning',
+
+  showCancelButton: true,
+
+  confirmButtonText: 'SIM, EXCLUIR',
+  cancelButtonText: 'Cancelar',
+
+  background: '#050816',
+  color: '#fff',
+
+  confirmButtonColor: '#00d9ff',
+  cancelButtonColor: '#1e293b',
+
+  width: 520,
+
+  customClass: {
+    popup: 'neon-popup',
+    title: 'neon-title',
+    confirmButton: 'neon-confirm',
+    cancelButton: 'neon-cancel'
+  }
+});
+
+if (!result.isConfirmed) return;
+
 
   try {
 
@@ -501,11 +593,11 @@ async function carregarDadosIniciais() {
       prev.filter((s) => String(s.id) !== String(id))
     );
 
-    alert('✅ Excluído');
+    toast.warning('✅ Excluído');
 
   } catch (err) {
     console.error(err);
-    alert(err.message);
+    toast.warning(err.message);
   }
 }
 
@@ -513,10 +605,10 @@ async function carregarDadosIniciais() {
     const id = Number(orcamentoData.servicoId);
     const servico = servicos.find(s => s.id === id);
 
-    if (!servico) return alert('Selecione um serviço');
+    if (!servico) return toast.warning('Selecione um serviço');
 
     const fone = servico.telefone?.replace(/\D/g, '');
-    if (!fone) return alert('Sem telefone');
+    if (!fone) return toast.warning('Sem telefone');
 
     const mensagem = `Orçamento para ${servico.equipamento} - R$ ${orcamentoData.valorTotal}`;
 
@@ -614,6 +706,7 @@ return (
                     <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-2">Faturamento Bruto</p>
                     <p className="text-5xl font-black text-white tracking-tighter">R$ {faturamentoTotal.toFixed(2)}</p>
                   </div>
+                  
                   <div className="pt-4 border-t border-slate-800 flex justify-between text-[10px] font-black uppercase">
                     <span className="text-slate-500">Recurso Semanal</span>
                     <span className="text-blue-400 text-sm">R$ {faturamentoSemanal.toFixed(2)}</span>
@@ -625,7 +718,7 @@ return (
                     <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-2">Custo com Peças</p>
                     <p className="text-5xl font-black text-red-500 tracking-tighter">R$ {gastosPecas.toFixed(2)}</p>
                   </div>
-                  <p className="text-[9px] text-slate-600 font-bold italic uppercase tracking-widest underline decoration-red-500/30">Lendo coluna: vaor_pecas</p>
+                  <p className="text-[9px] text-slate-600 font-bold italic uppercase tracking-widest underline decoration-red-500/30">Lendo coluna: valor_pecas</p>
                 </div>
 
                 <div className="bg-gradient-to-br from-emerald-600 to-green-800 h-65 p-8 rounded-3xl shadow-2xl flex flex-col justify-center relative overflow-hidden group">

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { supabase } from '../../public/lib/supabase';
+import { toast } from 'sonner';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,7 +36,7 @@ export default function LoginPage() {
       // 3. Valida se o que o usuário selecionou no "select" bate com o banco
       if (profileData.tipo_perfil !== perfil) {
         await supabase.auth.signOut();
-        alert(`Acesso negado. Sua conta é de ${profileData.tipo_perfil}, não de ${perfil}.`);
+        toast.warning(`Acesso negado. Sua conta é de ${profileData.tipo_perfil}, não de ${perfil}.`);
         setLoading(false);
         return;
       }
@@ -55,7 +56,7 @@ export default function LoginPage() {
       }
       
     } catch (error) {
-      alert('Erro ao entrar: ' + error.message);
+      toast.warning('Erro ao entrar: ' + error.message);
     } finally {
       setLoading(false);
     }

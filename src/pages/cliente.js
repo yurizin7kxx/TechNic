@@ -19,12 +19,21 @@ import {
   TimerReset,
   CreditCard
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function DetalhesOSPage() {
   const [os, setOs] = useState(null);
   const [loading, setLoading] = useState(true);
   const [enviandoAceite, setEnviandoAceite] = useState(false);
   const [enviandoRecusa, setEnviandoRecusa] = useState(false);
+  const coresStatus = {
+  Em_Analise: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+  Aguardando_Aprovacao: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+  Em_Manutencao: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  Pronto_Aguardando_Retirada: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+  Finalizado: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  Recusado: 'bg-red-500/10 text-red-400 border-red-500/20'
+};
 
   async function carregarDadosOS() {
     setLoading(true);
@@ -121,11 +130,11 @@ export default function DetalhesOSPage() {
 
       if (error) throw error;
 
-      alert('✅ Orçamento aprovado!');
+      toast.warning('✅ Orçamento aprovado!');
       carregarDadosOS();
 
     } catch (error) {
-      alert(error.message);
+      toast.warning(error.message);
     } finally {
       setEnviandoAceite(false);
     }
@@ -153,11 +162,11 @@ export default function DetalhesOSPage() {
 
       if (error) throw error;
 
-      alert('⚠️ Orçamento recusado.');
+      toast.warning('⚠️ Orçamento recusado.');
       carregarDadosOS();
 
     } catch (error) {
-      alert(error.message);
+      toast.warning(error.message);
     } finally {
       setEnviandoRecusa(false);
     }
@@ -210,9 +219,11 @@ export default function DetalhesOSPage() {
               Status Atual
             </p>
 
-            <div className="px-4 py-2 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-black uppercase tracking-widest">
-              {os.status?.replace(/_/g, ' ')}
-            </div>
+            <div className={`px-4 py-2 rounded-2xl border text-xs font-black uppercase tracking-widest ${
+  coresStatus[os.status] || 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+}`}>
+  {os.status?.replace(/_/g, ' ')}
+</div>
           </div>
         </div>
       </nav>
@@ -270,7 +281,15 @@ export default function DetalhesOSPage() {
                       Entrada
                     </p>
                     <p className="text-sm text-white font-bold">
-                      {os.data_entrada || 'Hoje'}
+                      {os.data_entrada
+  ? new Date(os.data_entrada).toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  : 'Hoje'}
                     </p>
                   </div>
 

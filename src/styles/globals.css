@@ -24,3 +24,57 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+.neon-popup {
+  border: 1px solid #00d9ff !important;
+  border-radius: 24px !important;
+
+  box-shadow:
+    0 0 10px #00d9ff55,
+    0 0 30px #00d9ff33,
+    inset 0 0 20px #00d9ff11 !important;
+
+  backdrop-filter: blur(10px);
+
+  animation: neonFade 0.25s ease;
+}
+
+.neon-title {
+  color: #00d9ff !important;
+  font-weight: 900 !important;
+  letter-spacing: 1px;
+}
+
+.neon-confirm {
+  border-radius: 14px !important;
+  font-weight: 800 !important;
+
+  box-shadow:
+    0 0 12px #00d9ff66 !important;
+
+  transition: 0.2s ease !important;
+}
+
+.neon-confirm:hover {
+  transform: scale(1.04);
+
+  box-shadow:
+    0 0 20px #00d9ff,
+    0 0 40px #00d9ff88 !important;
+}
+
+.neon-cancel {
+  border-radius: 14px !important;
+  font-weight: 700 !important;
+}
+
+@keyframes neonFade {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

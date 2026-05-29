@@ -9,12 +9,16 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.100.0",
+    "animate.css": "^4.1.1",
     "lucide-react": "^1.7.0",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-input-mask": "^2.0.4",
-    "react-select": "^5.10.2"
+    "react-select": "^5.10.2",
+    "recharts": "^3.8.1",
+    "sonner": "^2.0.7",
+    "sweetalert2": "^11.26.25"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

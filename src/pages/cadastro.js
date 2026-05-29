@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router'; 
 import { supabase } from '../../public/lib/supabase'; 
+import { toast } from 'sonner';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -54,13 +55,13 @@ export default function RegisterPage() {
 
         if (dbError) throw dbError;
 
-        alert('Cadastro realizado com sucesso! Agora você pode fazer login.');
+        toast.warning('Cadastro realizado com sucesso! Agora você pode fazer login.');
         
         // Redireciona para a tela de login (index) após cadastrar
         router.push('/'); 
       }
     } catch (error) {
-      alert('Erro no cadastro: ' + error.message);
+      toast.warning('Erro no cadastro: ' + error.message);
     } finally {
       setLoading(false);
     }

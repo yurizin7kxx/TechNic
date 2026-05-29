@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Select from 'react-select';
 import { supabase } from '../../public/lib/supabase';
+import { toast } from 'sonner';
 
 export default function PainelTecnicoEntrada() {
   const [clientes, setClientes] = useState([]);
@@ -135,7 +136,7 @@ useEffect(() => {
 
   const adicionarObs = async () => {
     if (!novaObs.trim()) return;
-    if (!clienteSelecionado || !aparelho) return alert("Selecione um cliente e aparelho primeiro!");
+    if (!clienteSelecionado || !aparelho) return toast.warning("Selecione um cliente e aparelho primeiro!");
 
     const dataHora = new Date().toLocaleString('pt-BR');
     const novoLog = `${dataHora} - ${novaObs}`;
@@ -165,17 +166,17 @@ useEffect(() => {
   };
 
   const salvarNovaOS = async (statusFinal) => {
-    if (!clienteSelecionado?.value) return alert("Selecione um Cliente!");
-    if (!aparelho.trim()) return alert("Informe o Aparelho/Modelo!");
+    if (!clienteSelecionado?.value) return toast.warning("Selecione um Cliente!");
+    if (!aparelho.trim()) return toast.warning("Informe o Aparelho/Modelo!");
     
     if (!aceiteCliente && (statusFinal === 'Em_Manutencao' || statusFinal === 'Finalizado')) {
-        return alert("O cliente precisa aceitar o orçamento antes de iniciar ou finalizar o serviço!");
+        return toast.warning("O cliente precisa aceitar o orçamento antes de iniciar ou finalizar o serviço!");
     }
 
-    if (!problema.trim()) return alert("Descreva o Problema!");
-    if (!valor || parseFloat(valor) <= 0) return alert("Informe o Valor do Serviço!");
-    if (!custoPecas || parseFloat(custoPecas) < 0) return alert("Informe o Custo das Peças (pode ser 0)!");
-    if (pecas.length === 0) return alert("Adicione pelo menos uma peça (ou 'Nenhuma')!");
+    if (!problema.trim()) return toast.warning("Descreva o Problema!");
+    if (!valor || parseFloat(valor) <= 0) return toast.warning("Informe o Valor do Serviço!");
+    if (!custoPecas || parseFloat(custoPecas) < 0) return toast.warning("Informe o Custo das Peças (pode ser 0)!");
+    if (pecas.length === 0) return toast.warning("Adicione pelo menos uma peça (ou 'Nenhuma')!");
 
     setLoading(true);
     try {
@@ -226,14 +227,14 @@ useEffect(() => {
 
       if (error) throw error;
       
-      alert(`✅ OS atualizada para: ${statusFinal.replace(/_/g, ' ')}`);
+      toast.warning(`✅ OS atualizada para: ${statusFinal.replace(/_/g, ' ')}`);
       
       if (statusFinal === 'Finalizado') {
         limparCampos();
       }
 
     } catch (error) {
-      alert('❌ Erro ao processar: ' + error.message);
+      toast.warning('❌ Erro ao processar: ' + error.message);
     } finally {
       setLoading(false);
     }
