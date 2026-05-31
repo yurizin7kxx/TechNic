@@ -19,12 +19,48 @@ import {
 
 export default function AdminDashboard() {
 
+  function gerarDadosGrafico(servicos) {
+
+  const dias = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+  const resultado = {
+    Dom: 0,
+    Seg: 0,
+    Ter: 0,
+    Qua: 0,
+    Qui: 0,
+    Sex: 0,
+    Sáb: 0,
+  };
+
+  servicos.forEach((s) => {
+
+    if (!s.preco) return;
+
+    const data = new Date(s.tempo);
+
+    const diaSemana = dias[data.getDay()];
+
+    resultado[diaSemana] += Number(s.preco);
+
+  });
+
+  const formatado = Object.keys(resultado).map((dia) => ({
+    nome: dia,
+    valor: resultado[dia]
+  }));
+
+  setDadosGraficoRealtime(formatado);
+}
+
   const dados = [
   { nome: 'Seg', valor: 1200 },
   { nome: 'Ter', valor: 900 },
   { nome: 'Qua', valor: 2100 },
   { nome: 'Qui', valor: 1700 },
   { nome: 'Sex', valor: 3200 },
+  { nome: 'Sáb', valor: 2800 },
+  { nome: 'Dom', valor: 1500 },
 ];
 
   const [clienteSelecionado, setClienteSelecionado] = useState(null);
@@ -36,6 +72,8 @@ export default function AdminDashboard() {
   const [buscaRelatorio, setBuscaRelatorio] = useState('');
 
   const [pesquisaTecnico, setPesquisaTecnico] = useState('');
+
+ const [dadosGraficoRealtime, setDadosGraficoRealtime] = useState([]);
 
   
 
@@ -206,7 +244,77 @@ const faturamentoSemanal = useMemo(() => {
   });
 
   useEffect(() => { checkAdmin(); }, []);
+  async function checkAdmin() {
 
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return router.push('/login');
+
+  // ✅ SINCRONIZA PERFIL AUTOMATICAMENTE
+  await supabase
+    .from('perfis')
+    .update({
+      nome_completo:
+        user.user_metadata?.nome ||
+        user.user_metadata?.full_name,
+
+      email: user.email
+    })
+    .eq('id', user.id);
+
+  await supabase
+    .from('clientes')
+    .update({
+      nome:
+        user.user_metadata?.nome ||
+        user.user_metadata?.full_name,
+
+      email: user.email
+    })
+    .eq('id', user.id);
+
+  // 👇 RESTO DO CÓDIGO
+  const { data: profile } = await supabase
+    .from('perfis')
+    .select('*')
+    .eq('id', user.id)
+    .single();
+
+  if (profile?.tipo_perfil !== 'admin') {
+    toast.warning('Acesso negado.');
+    router.push('');
+    return;
+  }
+
+  setUserProfile(profile);
+  setLoading(false);
+}
+
+useEffect(() => {
+
+  fetchDadosReais();
+
+  const channel = supabase
+    .channel('realtime-servicos')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'servicos_tecnico',
+      },
+      () => {
+        fetchDadosReais();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+
+}, []);
+  
   useEffect(() => {
 
   if (!clienteSelecionado) return;
@@ -276,6 +384,42 @@ async function carregarDadosIniciais() {
   console.log(data);
 
   setServicos(data || []);
+
+  // NOVO
+  gerarDadosGrafico(data || []);
+
+  // FATURAMENTO REAL DOS ÚLTIMOS 7 DIAS
+  const hoje = new Date();
+
+  const ultimos7Dias = [...Array(7)].map((_, i) => {
+    const d = new Date();
+    d.setDate(hoje.getDate() - (6 - i));
+
+    return {
+      nome: d.toLocaleDateString('pt-BR', { weekday: 'short' }),
+      data: d.toISOString().split('T')[0],
+      valor: 0
+    };
+  });
+
+  (data || []).forEach(servico => {
+
+    if (!servico.tempo || !servico.preco) return;
+
+    const dataServico = new Date(servico.tempo)
+      .toISOString()
+      .split('T')[0];
+
+    const diaEncontrado = ultimos7Dias.find(
+      d => d.data === dataServico
+    );
+
+    if (diaEncontrado) {
+      diaEncontrado.valor += Number(servico.preco);
+    }
+  });
+
+  setDadosGraficoRealtime(ultimos7Dias);
 }
 
   async function fetchTecnicos() {
@@ -699,6 +843,34 @@ return (
                   </div>
                 ))}
               </div>
+              <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 shadow-2xl h-[400px]">
+
+  <h3 className="text-white text-xl font-black mb-6">
+    Faturamento Semanal
+  </h3>
+
+  <ResponsiveContainer width="100%" height="100%">
+    <LineChart data={dadosGraficoRealtime}>
+
+      <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+
+      <XAxis dataKey="nome" stroke="#94a3b8" />
+
+      <YAxis stroke="#94a3b8" />
+
+      <Tooltip />
+
+      <Line
+        type="monotone"
+        dataKey="valor"
+        stroke="#3b82f6"
+        strokeWidth={4}
+      />
+
+    </LineChart>
+  </ResponsiveContainer>
+
+</div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="bg-slate-900 h-65 p-8 rounded-3xl border border-slate-800 shadow-2xl flex flex-col justify-between">

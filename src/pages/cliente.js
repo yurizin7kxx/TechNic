@@ -45,6 +45,13 @@ export default function DetalhesOSPage() {
         setLoading(false);
         return;
       }
+      await supabase
+  .from('clientes')
+  .update({
+    nome: user.user_metadata?.nome || user.user_metadata?.full_name,
+    email: user.email
+  })
+  .eq('id', user.id);
 
       const { data: cliente } = await supabase
         .from('clientes')
@@ -82,40 +89,38 @@ export default function DetalhesOSPage() {
           .eq('id', user.id)
           .single();
 
-        setOs({
-          id: data.id,
-          aparelho: data.equipamento || "Dispositivo",
-          cliente_nome: perfil?.nome_completo || user.email,
-          status: data.status,
-          valor_total: Number(data.preco) || 0,
-          problema_identificado: data.descricao,
-          tecnico: "Equipe TechNic",
-          data_entrada: data.tempo,
+setOs({
+    id: data.id,
+  aparelho: data.equipamento || "Dispositivo",
+  cliente_nome: perfil?.nome_completo || user.email,
+  status: data.status,
+  valor_total: Number(data.preco) || 0,
+  problema_identificado: data.descricao,
+  tecnico: "Equipe TechNic",
+  data_entrada: data.tempo,
 
-          previsao_entrega: data.previsao_entrega,
-          garantia: data.garantia || '90 dias',
+  previsao_entrega: data.previsao_entrega,
+  garantia: data.garantia || '90 dias',
 
-          pecas_usadas: data.peca_substituida
-            ? data.peca_substituida.split(', ')
-            : [],
-          historico_logs: logsFormatados,
-          fotos_url: Array.isArray(data.fotos_url)
-            ? data.fotos_url
-            : [],
-          aceite_cliente: data.aceite_cliente || false
-        });
-      }
+  pecas_usadas: data.peca_substituida
+    ? data.peca_substituida.split(', ')
+    : [],
 
+  historico_logs: logsFormatados,
+
+  fotos_url: Array.isArray(data.fotos_url)
+    ? data.fotos_url
+    : [],
+
+  aceite_cliente: data.aceite_cliente || false
+});
+}
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
   }
-
-  useEffect(() => {
-    carregarDadosOS();
-  }, []);
 
   const confirmarAceite = async () => {
     if (!os?.id) return;
@@ -139,6 +144,36 @@ export default function DetalhesOSPage() {
       setEnviandoAceite(false);
     }
   };
+  useEffect(() => {
+
+  carregarDadosOS();
+
+  const channel = supabase
+    .channel('cliente-realtime')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'servicos_tecnico',
+      },
+      async (payload) => {
+
+        console.log('Mudança detectada:', payload);
+
+        await carregarDadosOS();
+
+      }
+    )
+    .subscribe((status) => {
+      console.log('STATUS REALTIME:', status);
+    });
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+
+}, []);
 
   const recusarOrcamento = async () => {
     if (!os?.id) return;

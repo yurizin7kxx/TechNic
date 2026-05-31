@@ -38,6 +38,7 @@ export default function PainelTecnicoEntrada() {
   }
 }
 
+
 useEffect(() => {
   carregarClientes();
 
@@ -80,8 +81,20 @@ useEffect(() => {
       console.error(error);
       return;
     }
+const { data: clienteAtual } = await supabase
+      .from('clientes')
+      .select('*')
+      .eq('id', clienteId)
+      .single();
+
+    if (clienteAtual) {
+      setCpfCnpj(clienteAtual.cpf_cnpj || '');
+      setEndereco(clienteAtual.endereco || '');
+      setTelefone(clienteAtual.telefone || '');
+    }
 
     if (data) {
+
       setAparelho(data.equipamento || '');
       setProblema(data.descricao || '');
       setValor(data.preco?.toString() || '');
@@ -90,26 +103,16 @@ useEffect(() => {
       setPrevisaoEntrega(data.previsao_entrega || '');
       setAceiteCliente(data.aceite_cliente || false);
 
-      if (data.peca_substituida) {
-        setPecas(
-          data.peca_substituida
-            .split(', ')
-            .filter(p => p.trim() !== '')
-        );
-      } else {
-        setPecas([]);
-      }
-
-      setHistorico(
-        Array.isArray(data.historico_logs)
-          ? data.historico_logs
-          : []
-      );
     } else {
+
       limparCampos(false);
+
     }
+
   } catch (err) {
+
     console.error('Erro ao buscar OS ativa:', err);
+
   }
 };
 
