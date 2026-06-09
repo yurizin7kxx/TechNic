@@ -222,7 +222,7 @@ const { data: clienteAtual } = await supabase
           peca_substituida: pecasString,
           garantia: garantia,
           aceite_cliente: aceiteCliente,
-          previsao_entrega: previsaoEntrega,
+          previsao_entrega: previsaoEntrega || null,
           tempo: new Date().toISOString(),
           historico_logs: historicoLimpo,
           fotos_url: linksFotos 

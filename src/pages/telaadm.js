@@ -1485,6 +1485,7 @@ return (
 )}
 
 {/* --- ABA TODOS OS TÉCNICOS --- */}
+
 {abaAtiva === 'tecnicosall' && (
   <div className="space-y-6">
 
@@ -1514,7 +1515,16 @@ return (
               .includes((pesquisaTecnico || '').toLowerCase())
           ).length} técnicos
         </span>
-
+<button
+  onClick={() => setAbaAtiva('rankingTecnicos')}
+  className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl transition-all font-bold ${
+    abaAtiva === 'rankingTecnicos'
+      ? 'bg-yellow-500 text-black'
+      : 'text-slate-300 hover:bg-slate-800'
+  }`}
+>
+  🏆 Ranking Técnicos
+</button>
       </div>
     </div>
 
