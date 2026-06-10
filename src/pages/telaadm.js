@@ -18,8 +18,9 @@ import {
 } from 'recharts';
 
 export default function AdminDashboard() {
+  
 
-  function gerarDadosGrafico(servicos) {
+function gerarDadosGrafico(servicos) {
 
   const dias = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
@@ -211,6 +212,31 @@ const faturamentoSemanal = useMemo(() => {
   const [abaAtiva, setAbaAtiva] = useState('geral');
 
   const [tecnicos, setTecnicos] = useState([]);
+
+const rankingTecnicos = tecnicos.map((tecnico) => {
+
+  const servicosTecnico = servicos.filter(
+    (s) => String(s.tecnico) === String(tecnico.id)
+  );
+
+  const finalizados = servicosTecnico.filter(
+    (s) => s.status === 'Finalizado'
+  );
+
+  const faturamento = finalizados.reduce(
+    (acc, s) => acc + (Number(s.preco) || 0),
+    0
+  );
+
+  return {
+    ...tecnico,
+    totalServicos: servicosTecnico.length,
+    finalizados: finalizados.length,
+    faturamento
+  };
+
+}).sort((a, b) => b.faturamento - a.faturamento);
+
   const [novoTecnico, setNovoTecnico] = useState({
   nome: '',
   email: '',
@@ -821,6 +847,7 @@ return (
     orcamentos: 'Gerar Orçamento',
     tecnicos: 'Gestão de Técnicos',
     tecnicosall: 'Todos os Técnicos',
+    rankingTecnicos: 'Ranking dos Técnicos',
     relatorios: 'Relatórios Técnicos',
     finalizados: 'Finalizados'
   })[abaAtiva]}
@@ -2024,6 +2051,187 @@ return (
 
         </table>
       </div>
+    </div>
+  </div>
+)}
+
+
+  {/* --- RANKING DE TÉCNICOS --- */}
+{abaAtiva === 'rankingTecnicos' && (
+  <div className="space-y-8">
+
+    {/* HEADER */}
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+
+      <h3 className="text-3xl font-black italic tracking-tighter text-white uppercase">
+        🏆 Ranking de Técnicos
+      </h3>
+
+      <div className="flex gap-2">
+        {['hoje', 'semana', 'mes'].map((p) => (
+          <button
+            key={p}
+            className="px-4 py-2 rounded-xl text-xs font-black uppercase bg-slate-800 text-slate-300 hover:bg-blue-500 hover:text-white transition"
+          >
+            {p}
+          </button>
+        ))}
+      </div>
+
+    </div>
+
+    <div className="grid gap-5">
+
+      {(!Array.isArray(rankingTecnicos) || rankingTecnicos.length === 0) && (
+        <div className="text-slate-500 text-center py-10">
+          Nenhum técnico encontrado.
+        </div>
+      )}
+
+      {Array.isArray(rankingTecnicos) && (() => {
+
+        const sorted = [...rankingTecnicos].sort(
+          (a, b) => (b?.faturamento ?? 0) - (a?.faturamento ?? 0)
+        );
+
+        const maxFaturamento = Math.max(
+          ...sorted.map(t => Number(t?.faturamento ?? 0)),
+          1
+        );
+
+        const formatCurrency = new Intl.NumberFormat('pt-BR', {
+          style: 'currency',
+          currency: 'BRL',
+        });
+
+        return sorted.map((tecnico, index) => {
+
+          const totalServicos = tecnico?.totalServicos ?? 0;
+          const finalizados = tecnico?.finalizados ?? 0;
+          const faturamento = Number(tecnico?.faturamento ?? 0);
+
+          const eficiencia =
+            totalServicos > 0
+              ? (finalizados / totalServicos) * 100
+              : 0;
+
+          const evolucao = tecnico?.evolucao ?? 0;
+
+          const barWidth = (faturamento / maxFaturamento) * 100;
+
+          // SCORE FINAL (peso equilibrado)
+          const score =
+            (eficiencia * 0.5) +
+            (Math.min(faturamento / 1000, 100) * 0.3) +
+            (Math.min(totalServicos, 100) * 0.2);
+
+          return (
+            <div
+              key={tecnico?.id ?? index}
+              className="bg-slate-900 border border-slate-800 rounded-3xl p-6 hover:border-blue-500 transition-all"
+            >
+
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+
+                {/* LEFT */}
+                <div className="flex items-center gap-5">
+
+                  {/* POSITION */}
+                  <div className={`
+                    w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-black
+                    ${index === 0
+                      ? 'bg-blue-500 text-white'
+                      : index === 1
+                      ? 'bg-slate-300 text-black'
+                      : index === 2
+                      ? 'bg-blue-700 text-white'
+                      : 'bg-slate-800 text-slate-300'}
+                  `}>
+                    {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
+                  </div>
+
+                  <div>
+                    <h4 className="text-xl font-black text-white flex items-center gap-2">
+                      {tecnico?.nome_completo || tecnico?.nome || 'Sem nome'}
+
+                      {evolucao !== 0 && (
+                        <span className={`text-xs font-black ${
+                          evolucao > 0 ? 'text-green-400' : 'text-red-400'
+                        }`}>
+                          {evolucao > 0 ? '↑' : '↓'} {Math.abs(evolucao)}
+                        </span>
+                      )}
+                    </h4>
+
+                    <p className="text-slate-500 text-sm">
+                      {tecnico?.email || 'Sem e-mail'}
+                    </p>
+
+                    <p className="text-blue-400 text-xs font-black mt-1">
+                      Score: {score.toFixed(1)}
+                    </p>
+                  </div>
+
+                </div>
+
+                {/* STATS */}
+                <div className="grid grid-cols-3 gap-4 w-full md:w-auto">
+
+                  <div className="bg-slate-800 px-6 py-4 rounded-2xl text-center">
+                    <p className="text-slate-500 text-xs uppercase">Serviços</p>
+                    <p className="text-white text-2xl font-black">{totalServicos}</p>
+                  </div>
+
+                  <div className="bg-slate-800 px-6 py-4 rounded-2xl text-center">
+                    <p className="text-slate-500 text-xs uppercase">Finalizados</p>
+                    <p className="text-green-400 text-2xl font-black">{finalizados}</p>
+                  </div>
+
+                  <div className="bg-slate-800 px-6 py-4 rounded-2xl text-center">
+                    <p className="text-slate-500 text-xs uppercase">Faturamento</p>
+                    <p className="text-blue-400 text-2xl font-black">
+                      {formatCurrency.format(faturamento)}
+                    </p>
+                  </div>
+
+                </div>
+
+              </div>
+
+              {/* BARRAS + GRÁFICO */}
+              <div className="mt-6 grid grid-cols-12 gap-2 items-end">
+
+                {/* barra principal faturamento */}
+                <div className="col-span-10 bg-slate-800 h-3 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500 rounded-full"
+                    style={{ width: `${barWidth}%` }}
+                  />
+                </div>
+
+                {/* mini gráfico vertical score */}
+                <div className="col-span-2 flex items-end justify-end gap-1 h-10">
+
+                  <div
+                    className="w-2 bg-blue-500 rounded"
+                    style={{ height: `${Math.min(score, 100)}%` }}
+                  />
+
+                  <div
+                    className="w-2 bg-slate-600 rounded"
+                    style={{ height: `${eficiencia}%` }}
+                  />
+
+                </div>
+
+              </div>
+
+            </div>
+          );
+        });
+
+      })()}
+
     </div>
   </div>
 )}

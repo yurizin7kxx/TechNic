@@ -4,6 +4,12 @@ import { supabase } from '../../public/lib/supabase';
 import { toast } from 'sonner';
 
 export default function PainelTecnicoEntrada() {
+
+  const [tecnicoNome, setTecnicoNome] = useState('');
+
+const [servicosFinalizados, setServicosFinalizados] = useState([]);
+const [buscaFinalizados, setBuscaFinalizados] = useState('');
+
   const [clientes, setClientes] = useState([]);
   const [clienteSelecionado, setClienteSelecionado] = useState({});
   const [aparelho, setAparelho] = useState('');
@@ -25,6 +31,22 @@ export default function PainelTecnicoEntrada() {
   const [previsaoEntrega, setPrevisaoEntrega] = useState('');
   const [statusOS, setStatusOS] = useState('Em_Analise');
 
+
+  async function carregarFinalizados() {
+  const { data, error } = await supabase
+    .from('servicos_tecnico')
+    .select('id, cliente, equipamento, status, tempo')
+    .eq('status', 'Finalizado')
+    .order('tempo', { ascending: false })
+    .limit(20);
+
+  if (!error) {
+    setServicosFinalizados(data || []);
+  } else {
+    console.error(error);
+  }
+}
+
   async function carregarClientes() {
   const { data, error } = await supabase
     .from('clientes')
@@ -37,6 +59,65 @@ export default function PainelTecnicoEntrada() {
     setClientes(data || []);
   }
 }
+
+useEffect(() => {
+  async function buscarTecnico() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from('usuarios')
+      .select('nome')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    setTecnicoNome(data?.nome || user.email);
+  }
+
+  buscarTecnico();
+}, []);
+
+useEffect(() => {
+  carregarFinalizados();
+}, []);
+
+useEffect(() => {
+  async function carregarFinalizados() {
+    const { data, error } = await supabase
+      .from('servicos_tecnico')
+      .select('id, cliente, equipamento, status')
+      .eq('status', 'Finalizado')
+      .order('id', { ascending: false })
+      .limit(10);
+
+    if (!error) {
+      setServicosFinalizados(data || []);
+    } else {
+      console.error(error);
+    }
+  }
+
+  carregarFinalizados();
+}, []); 
+
+useEffect(() => {
+  async function buscarTecnico() {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    // tenta buscar nome na tabela de usuários/perfil
+    const { data } = await supabase
+      .from('usuarios') // se sua tabela tiver outro nome, me fala
+      .select('nome')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    setTecnicoNome(data?.nome || user.email);
+  }
+
+  buscarTecnico();
+}, []);
 
 
 useEffect(() => {
@@ -207,45 +288,144 @@ const { data: clienteAtual } = await supabase
       
       // MANTENDO SEU UPSERT: apenas garanti o trim() no equipamento
       const { error } = await supabase
-        .from('servicos_tecnico')
-        .upsert([{ 
-          cliente_id: clienteSelecionado?.value || null, 
+      .from('servicos_tecnico')
+      .upsert([{
+        cliente_id: clienteSelecionado?.value,
+        cliente: clienteSelecionado?.cliente?.nome,
+        tecnico: user.id,
+        equipamento: aparelho.trim(),
+        status: statusFinal,
+        descricao: problema,
+        preco: parseFloat(valor),
+        valor_pecas: parseFloat(custoPecas),
+        peca_substituida: pecas.join(', '),
+        garantia,
+        aceite_cliente: aceiteCliente,
+        previsao_entrega: previsaoEntrega || null,
+        tempo: new Date().toISOString(),
+        historico_logs: historico,
+      }]);
 
-          cliente: clienteSelecionado?.cliente?.nome || '',
+    if (error) throw error;
 
-          tecnico: user.id,
-          equipamento: aparelho.trim(), // Garante que ignore espaços extras
-          status: statusOS,
-          descricao: problema,
-          preco: parseFloat(valor), 
-          valor_pecas: parseFloat(custoPecas),
-          peca_substituida: pecasString,
-          garantia: garantia,
-          aceite_cliente: aceiteCliente,
-          previsao_entrega: previsaoEntrega || null,
-          tempo: new Date().toISOString(),
-          historico_logs: historicoLimpo,
-          fotos_url: linksFotos 
-        }], { onConflict: 'cliente_id, equipamento' });
+    toast.success(`OS atualizada: ${statusFinal}`);
 
-      if (error) throw error;
-      
-      toast.warning(`✅ OS atualizada para: ${statusFinal.replace(/_/g, ' ')}`);
-      
-      if (statusFinal === 'Finalizado') {
-        limparCampos();
-      }
-
-    } catch (error) {
-      toast.warning('❌ Erro ao processar: ' + error.message);
-    } finally {
-      setLoading(false);
+    // 🔥 AQUI ESTÁ A ORGANIZAÇÃO CORRETA
+    if (statusFinal === 'Finalizado') {
+      limparCampos();
+      carregarFinalizados(); // 👈 ESSA LINHA RESOLVE TUDO
     }
-  };
+
+  } catch (err) {
+    toast.error(err.message);
+  }
+};
+  
 
   return (
+    <>
+ {/* SIDEBAR FIXA DO TÉCNICO */}
+<div className="fixed left-0 top-0 h-full w-64 bg-[#0f172a] border-r border-slate-800 shadow-2xl z-50 flex flex-col">
+
+  {/* HEADER */}
+  <div className="p-5 border-b border-slate-800">
+
+    <div className="flex items-center gap-3">
+
+      <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black">
+        {tecnicoNome?.charAt(0)?.toUpperCase() || 'T'}
+      </div>
+
+      <div className="min-w-0">
+        <p className="text-[10px] text-slate-500 uppercase font-bold">
+          Técnico
+        </p>
+
+        <h3 className="text-white font-black text-sm truncate">
+          {tecnicoNome || 'Carregando...'}
+        </h3>
+
+        <p className="text-[11px] text-blue-400 font-bold mt-1">
+          Serviços finalizados
+        </p>
+      </div>
+
+    </div>
+  </div>
+
+  {/* STATUS */}
+  <div className="p-4">
+
+    <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg">
+      <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+      <span className="text-[11px] text-slate-400 font-bold uppercase">
+        Online
+      </span>
+    </div>
+
+  </div>
+
+  {/* BUSCA */}
+  <div className="px-4 mb-2">
+    <input
+      type="text"
+      placeholder="Pesquisar cliente..."
+      value={buscaFinalizados}
+      onChange={(e) => setBuscaFinalizados(e.target.value)}
+      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-blue-500"
+    />
+  </div>
+
+  {/* LISTA FILTRADA */}
+  <div className="px-4 flex-1 overflow-y-auto">
+
+    <p className="text-[10px] text-slate-500 font-bold uppercase mb-2">
+      Finalizados
+    </p>
+
+    <div className="space-y-2">
+
+      {(!servicosFinalizados || servicosFinalizados.length === 0) && (
+        <p className="text-[11px] text-slate-600">
+          Nenhum serviço finalizado
+        </p>
+      )}
+
+      {(servicosFinalizados || [])
+        .filter((os) =>
+          os.cliente
+            ?.toLowerCase()
+            .includes(buscaFinalizados.toLowerCase())
+        )
+        .map((os, i) => (
+          <div
+            key={os.id || i}
+            className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2"
+          >
+            <p className="text-white text-xs font-bold truncate">
+              {os.cliente || 'Cliente sem nome'}
+            </p>
+
+            <p className="text-[10px] text-slate-500">
+              {os.equipamento || 'Sem aparelho'}
+            </p>
+          </div>
+        ))
+      }
+
+    </div>
+
+  </div>
+
+  {/* FOOTER */}
+  <div className="p-4 border-t border-slate-800 text-[10px] text-slate-500">
+    Sistema OS v1.0
+  </div>
+
+</div>
+    
     <div className="min-h-screen bg-[#0f172a] text-slate-400 p-10 font-sans">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="ml-64 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
         
   
         {/* COLUNA DA ESQUERDA */}
@@ -602,5 +782,6 @@ const { data: clienteAtual } = await supabase
         </div>
       </div>
     </div>
+      </>
   );
 }
