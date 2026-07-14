@@ -917,14 +917,14 @@ return (
                     <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-2">Custo com Peças</p>
                     <p className="text-5xl font-black text-red-500 tracking-tighter">R$ {gastosPecas.toFixed(2)}</p>
                   </div>
-                  <p className="text-[9px] text-slate-600 font-bold italic uppercase tracking-widest underline decoration-red-500/30">Lendo coluna: valor_pecas</p>
+                  <p className="text-[9px] text-slate-600 font-bold italic uppercase tracking-widest underline decoration-red-500/30">Valor peças</p>
                 </div>
 
                 <div className="bg-gradient-to-br from-emerald-600 to-green-800 h-65 p-8 rounded-3xl shadow-2xl flex flex-col justify-center relative overflow-hidden group">
                   <div className="absolute -right-4 -top-4 text-white/10 text-9xl font-black italic group-hover:scale-110 transition-transform cursor-default">$</div>
                   <p className="text-white/70 text-[10px] font-black uppercase tracking-widest mb-2">Lucro Líquido Real</p>
                   <p className="text-6xl font-black text-white tracking-tighter drop-shadow-md">R$ {lucroLiquido.toFixed(2)}</p>
-                  <p className="mt-4 text-[10px] font-bold text-emerald-200 uppercase">Margem de lucro ativa ✅</p>
+                  <p className="mt-4 text-[10px] font-bold text-emerald-200 uppercase">Margem de lucro✅</p>
                 </div>
               </div>
             </div>

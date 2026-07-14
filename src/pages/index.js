@@ -41,19 +41,23 @@ export default function LoginPage() {
         return;
       }
 
-      // 4. REDIRECIONAMENTO POR PERMISSÃO (ATUALIZADO)
-      if (profileData.tipo_perfil === 'admin') {
-        // Manda o dono para a tela de administração (telaadm)
-        router.push('/telaadm'); 
-      } 
-      else if (profileData.tipo_perfil === 'tecnico') {
-        // Manda o técnico para a tela específica dele (tecnico)
-        router.push('/tecnico'); 
-      } 
-      else {
-        // Se for cliente, vai para a tela de consulta
-        router.push('/cliente'); 
-      }
+      // 4. REDIRECIONAMENTO POR PERMISSÃO
+if (profileData.tipo_perfil === 'admin') {
+  router.push('/telaadm');
+}
+else if (profileData.tipo_perfil === 'tecnico') {
+  router.push('/tecnico');
+}
+else if (profileData.tipo_perfil === 'atendente') {
+  router.push('/atendente');
+}
+else if (profileData.tipo_perfil === 'cliente') {
+  router.push('/cliente');
+}
+else {
+  await supabase.auth.signOut();
+  toast.warning('Perfil inválido.');
+}
       
     } catch (error) {
       toast.warning('Erro ao entrar: ' + error.message);
@@ -107,6 +111,8 @@ export default function LoginPage() {
               <option value="" disabled>Selecione seu perfil</option>
               <option value="cliente">Cliente</option>
               <option value="tecnico">Técnico</option>
+              <option value="atendente">Atendente</option>
+              
               <option value="admin">Administrador</option>
             </select>
           </div>

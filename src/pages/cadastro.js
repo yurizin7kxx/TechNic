@@ -142,6 +142,7 @@ export default function RegisterPage() {
               <option value="" disabled>Selecione seu perfil</option>
               <option value="cliente">Cliente</option>
               <option value="tecnico">Técnico</option>
+              <option value="atendente">Atendente</option>
               <option value="admin">Administrador</option>
             </select>
           </div>
