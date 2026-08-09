@@ -819,9 +819,8 @@ return (
             { id: 'geral', label: 'Visão Geral', icon: '📊' },
             { id: 'servicos', label: 'Todos os Serviços', icon: '🛠️' },
             { id: 'clientes', label: 'Gestão de Clientes', icon: '👤', color: 'blue' }, // NOVO BOTÃO
-            { id: 'clientesall', label: 'Base de Clientes', icon: '📁', color: 'blue' },
-            { id: 'orcamentos', label: 'Gerar Orçamento', icon: '📝', color: 'blue' },
             { id: 'tecnicos', label: 'Gestão de Técnicos', icon: '👥', color: 'indigo' },
+            { id: 'clientesall', label: 'Base de Clientes', icon: '📁', color: 'blue' },
             { id: 'tecnicosall', label: 'Base dos Técnicos', icon: '🧑‍🔧', color: 'indigo' },
             { id: 'relatorios', label: 'Relatórios Técnicos', icon: '📋' },
             { id: 'finalizados', label: 'Finalizados', icon: '✅', color: 'green' }
@@ -844,7 +843,6 @@ return (
     servicos: 'Todos os Serviços',
     clientes: 'Gestão de Clientes',
     clientesall: 'Todos os Clientes',
-    orcamentos: 'Gerar Orçamento',
     tecnicos: 'Gestão de Técnicos',
     tecnicosall: 'Todos os Técnicos',
     rankingTecnicos: 'Ranking dos Técnicos',
@@ -1299,69 +1297,6 @@ return (
     </div>
   </div>
 )}
-
-          {abaAtiva === 'orcamentos' && (
-            <div className="max-w-4xl mx-auto space-y-8">
-              <div className="bg-slate-900 p-10 rounded-3xl border border-slate-800 shadow-2xl">
-                <h3 className="text-3xl font-black text-white tracking-tighter italic mb-8 uppercase">Gerar Orçamento Oficial</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Selecionar Serviço Aberto</label>
-                    <select 
-                      className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold"
-                      value={orcamentoData.servicoId}
-                      onChange={(e) => {
-                        const s = servicos.find(item => Number(item.id) === Number(e.target.value));
-                        setOrcamentoData({...orcamentoData, servicoId: e.target.value, valorTotal: s?.preco || 0});
-                      }}
-                    >
-                      <option value="">Selecione um equipamento...</option>
-                      {servicos.filter(s => !isFinalizado(s.status)).map(s => (
-                        <option key={s.id} value={s.id}>{s.equipamento} - {s.cliente}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Prazo de Entrega (Dias)</label>
-                    <input 
-                      type="text" 
-                      placeholder="Ex: 3 a 5 dias úteis"
-                      className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold"
-                      value={orcamentoData.prazo}
-                      onChange={(e) => setOrcamentoData({...orcamentoData, prazo: e.target.value})}
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-6">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Valor do Orçamento (R$)</label>
-                  <input 
-                    type="number" 
-                    className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold"
-                    value={orcamentoData.valorTotal}
-                    onChange={(e) => setOrcamentoData({...orcamentoData, valorTotal: e.target.value})}
-                  />
-                </div>
-
-                <div className="mt-6">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Diagnóstico Técnico</label>
-                  <textarea 
-                    className="w-full bg-slate-950 border-2 border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-blue-600 font-bold h-32"
-                    placeholder="Descreva o defeito encontrado..."
-                    value={orcamentoData.diagnostico}
-                    onChange={(e) => setOrcamentoData({...orcamentoData, diagnostico: e.target.value})}
-                  />
-                </div>
-
-                <div className="mt-8 flex gap-4">
-                  <button onClick={enviarOrcamentoWhatsApp} className="flex-1 bg-green-600 hover:bg-green-500 text-white font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-2">📱 Enviar via WhatsApp</button>
-                  <button onClick={salvarDiagnostico} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest text-xs transition-all">Salvar Diagnóstico</button>
-                </div>
-              </div>
-            </div>
-          )}
 
        {/* --- ABA: GESTÃO DE TÉCNICOS --- */}
 {abaAtiva === 'tecnicos' && (
